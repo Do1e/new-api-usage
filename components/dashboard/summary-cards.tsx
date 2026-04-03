@@ -74,6 +74,13 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
       bgColor: 'bg-blue-500/10',
     },
     {
+      title: '总Token',
+      value: stats?.totalTokens || 0,
+      icon: Database,
+      color: 'text-indigo-500',
+      bgColor: 'bg-indigo-500/10',
+    },
+    {
       title: '输入Token',
       value: stats?.inputTokens || 0,
       icon: ArrowDownToLine,
@@ -93,13 +100,6 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
       icon: ArrowUpFromLine,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
-    },
-    {
-      title: '总Token数',
-      value: stats?.totalTokens || 0,
-      icon: Database,
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-500/10',
     },
   ];
 
