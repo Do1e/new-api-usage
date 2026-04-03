@@ -1,0 +1,15 @@
+{
+  "mcp": {
+    "shadcn": {
+      "type": "local",
+      "command": ["npx", "shadcn@latest", "mcp"],
+      "enabled": true
+    },
+    "lucide-icons": {
+      "type": "local",
+      "command": ["npx", "lucide-icons-mcp", "--stdio"],
+      "enabled": true
+    }
+  },
+  "$schema": "https://opencode.ai/config.json"
+}

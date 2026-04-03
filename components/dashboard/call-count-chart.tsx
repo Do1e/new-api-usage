@@ -1,0 +1,145 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { Loader2, TrendingUp } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface FilterState {
+  startTime: number | null;
+  endTime: number | null;
+  user: string | null;
+  model: string | null;
+}
+
+interface CallCountChartProps {
+  filters: FilterState;
+  refreshKey: number;
+}
+
+const COLORS = [
+  '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899',
+  '#14b8a6', '#f59e0b', '#6366f1', '#ef4444', '#84cc16',
+];
+
+type MetricKey = 'calls' | 'total' | 'input' | 'output' | 'cache';
+
+const METRIC_LABELS: Record<MetricKey, string> = {
+  calls: '调用次数',
+  total: '总 Token',
+  input: '输入 Token',
+  cache: '缓存 Token',
+  output: '输出 Token',
+};
+
+
+export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => {
+  const [callsData, setCallsData] = useState<Record<string, number | string>[]>([]);
+  const [tokensData, setTokensData] = useState<Record<string, Record<string, number | string>[]>>({});
+  const [users, setUsers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [metric, setMetric] = useState<MetricKey>('calls');
+
+  useEffect(() => {
+    const fetchTimeSeries = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (filters.startTime) params.append('startTime', filters.startTime.toString());
+        if (filters.endTime) params.append('endTime', filters.endTime.toString());
+        if (filters.user) params.append('user', filters.user);
+        if (filters.model) params.append('model', filters.model);
+
+        const response = await fetch(`/api/stats/time-series?${params}`);
+        if (response.ok) {
+          const result = await response.json();
+          setCallsData(result.data);
+          setUsers(result.users);
+          setTokensData(result.tokens || {});
+        }
+      } catch (error) {
+        console.error('Failed to fetch time series:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTimeSeries();
+  }, [filters, refreshKey]);
+
+  const formatXAxis = (timestamp: number) => {
+    return format(new Date(timestamp * 1000), 'MM/dd HH:mm');
+  };
+
+  const chartData = metric === 'calls' ? callsData : (tokensData[metric] || []);
+  const hasData = chartData.length > 0 && users.length > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" />
+          {METRIC_LABELS[metric]}趋势（每小时）
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={metric} onValueChange={(v) => setMetric(v as MetricKey)}>
+          <TabsList className="mb-4">
+            {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
+              <TabsTrigger key={key} value={key}>{METRIC_LABELS[key]}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {loading && (
+          <div className="h-75 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        )}
+        {!loading && !hasData && (
+          <div className="h-75 flex items-center justify-center text-muted-foreground">
+            暂无数据
+          </div>
+        )}
+        {!loading && hasData && (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="time"
+                tickFormatter={formatXAxis}
+                tick={{ fontSize: 11 }}
+                interval={7}
+              />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                allowDecimals={false}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+                labelFormatter={(label) => format(new Date(Number(label) * 1000), 'yyyy-MM-dd HH:mm')}
+              />
+              <Legend />
+              {users.map((username, index) => (
+                <Line
+                  key={username}
+                  type="monotone"
+                  dataKey={username}
+                  stroke={COLORS[index % COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

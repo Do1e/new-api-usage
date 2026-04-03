@@ -1,0 +1,159 @@
+import { cookies } from 'next/headers';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
+
+import { jwtVerify } from 'jose';
+
+import { query } from '@/lib/db';
+
+const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
+
+// Verify authentication
+async function verifyAuth(_request: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth-token')?.value;
+  
+  if (!token) {
+    return false;
+  }
+  
+  try {
+    await jwtVerify(token, new TextEncoder().encode(SESSION_SECRET));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    // Check authentication
+    const isAuthenticated = await verifyAuth(request);
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = request.nextUrl;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const startTime = searchParams.get('startTime');
+    const endTime = searchParams.get('endTime');
+    const user = searchParams.get('user');
+    const model = searchParams.get('model');
+    const channel = searchParams.get('channel');
+
+    // Build WHERE clause
+    const conditions: string[] = [];
+    const params: (string | number | null)[] = [];
+    let paramIndex = 1;
+
+    if (startTime) {
+      conditions.push(`created_at >= $${paramIndex}`);
+      params.push(parseInt(startTime));
+      paramIndex++;
+    }
+
+    if (endTime) {
+      conditions.push(`created_at <= $${paramIndex}`);
+      params.push(parseInt(endTime));
+      paramIndex++;
+    }
+
+    if (user) {
+      conditions.push(`(username = $${paramIndex} OR user_id::text = $${paramIndex})`);
+      params.push(user);
+      paramIndex++;
+    }
+
+    if (model) {
+      conditions.push(`model_name = $${paramIndex}`);
+      params.push(model);
+      paramIndex++;
+    }
+
+    if (channel) {
+      conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
+      params.push(channel);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM public.logs ${whereClause}`;
+    const countResult = await query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get paginated logs
+    const offset = (page - 1) * limit;
+    const logsQuery = `
+      SELECT 
+        id,
+        created_at,
+        username,
+        model_name,
+        channel_name,
+        is_stream,
+        use_time,
+        prompt_tokens as input_tokens,
+        completion_tokens as output_tokens,
+        COALESCE((other::json ->> 'cache_tokens')::bigint, 0) as cache_tokens,
+        COALESCE((other::json ->> 'frt')::bigint, 0) as first_token_time
+      FROM public.logs
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(limit, offset);
+
+    const logsResult = await query(logsQuery, params);
+
+    const logs = logsResult.rows.map((row: { 
+      id: number; 
+      created_at: number; 
+      username: string; 
+      model_name: string; 
+      channel_name: string; 
+      is_stream: boolean;
+      use_time: number; 
+      input_tokens: number; 
+      output_tokens: number; 
+      cache_tokens: number; 
+      first_token_time: number; 
+    }) => ({
+      id: row.id,
+      time: row.created_at,
+      timeFormatted: new Date(row.created_at * 1000).toLocaleString('zh-CN'),
+      user: row.username || 'Unknown',
+      model: row.model_name || 'Unknown',
+      channel: row.channel_name || 'Unknown',
+      isStream: row.is_stream,
+      useTime: row.use_time || 0,
+      inputTokens: row.input_tokens || 0,
+      outputTokens: row.output_tokens || 0,
+      cacheTokens: row.cache_tokens || 0,
+      firstTokenTime: row.first_token_time || 0,
+    }));
+
+    return NextResponse.json({
+      logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+
+  } catch (error) {
+    console.error('Logs API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

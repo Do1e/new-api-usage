@@ -1,0 +1,14 @@
+services:
+  new-api-usage:
+    image: new-api-usage:latest
+    container_name: new-api-usage
+    network_mode: bridge
+    ports:
+      - "3000:3000"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env.docker
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped

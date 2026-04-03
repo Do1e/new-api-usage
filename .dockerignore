@@ -1,0 +1,12 @@
+node_modules/
+
+.next
+dist
+.env
+
+docker-compose.yml
+
+.git
+.gitignore
+
+*.md
