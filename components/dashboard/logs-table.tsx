@@ -61,6 +61,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  const showLoadingOverlay = loading && logs.length > 0;
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -129,12 +130,8 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="h-100 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : (
-          <>
+        <div className="relative min-h-112" aria-busy={loading}>
+          <div className="space-y-4">
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -152,7 +149,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                 <TableBody>
                   {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         暂无日志
                       </TableCell>
                     </TableRow>
@@ -190,9 +187,8 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
               </Table>
             </div>
 
-            {/* Pagination */}
             {pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
                   第 {pagination.page} / {pagination.totalPages} 页
                 </div>
@@ -201,7 +197,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(pagination.page - 1)}
-                    disabled={pagination.page <= 1}
+                    disabled={loading || pagination.page <= 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
                     上一页
@@ -210,7 +206,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(pagination.page + 1)}
-                    disabled={pagination.page >= pagination.totalPages}
+                    disabled={loading || pagination.page >= pagination.totalPages}
                   >
                     下一页
                     <ChevronRight className="h-4 w-4" />
@@ -218,9 +214,15 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                 </div>
               </div>
             )}
-          </>
-        )}
+          </div>
+
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/70">
+              <Loader2 className={`h-8 w-8 animate-spin ${showLoadingOverlay ? '' : 'text-muted-foreground'}`} />
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
-}
+};
