@@ -1,4 +1,4 @@
-files=$(git diff --cached --name-only --diff-filter=ACMR)
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep -Ev '\.md$' || true)
 if [[ $files == "" ]]; then
   exit 0
 fi
