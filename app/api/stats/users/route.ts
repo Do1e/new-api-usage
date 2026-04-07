@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
+    const user = searchParams.get('user');
 
     // Build WHERE clause
     const conditions: string[] = [];
@@ -70,6 +71,12 @@ export async function GET(request: NextRequest) {
     if (token) {
       conditions.push(`token_name = $${paramIndex}`);
       params.push(token);
+      paramIndex++;
+    }
+
+    if (user) {
+      conditions.push(`username = $${paramIndex}`);
+      params.push(user);
       paramIndex++;
     }
 

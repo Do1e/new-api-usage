@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -15,14 +15,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
+
+interface TokenOption {
+  name: string;
+  username: string;
+}
 
 interface FilterState {
   startTime: number | null;
@@ -158,8 +157,14 @@ export const Filters = ({
   const [filterOptions, setFilterOptions] = useState<{
     users: string[];
     models: string[];
-    tokens: { name: string; username: string }[];
+    tokens: TokenOption[];
   }>({ users: [], models: [], tokens: [] });
+
+  const tokenValue = useMemo(() => {
+    if (!filters.token) return null;
+    const match = filterOptions.tokens.find((t) => t.name === filters.token);
+    return match ? `${match.name}::${match.username}` : filters.token;
+  }, [filters.token, filterOptions.tokens]);
 
   // Fetch filter options
   useEffect(() => {
@@ -200,72 +205,51 @@ export const Filters = ({
           placeholder="选择结束时间"
         />
 
-        {/* User Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">用户</Label>
-          <Select
-            value={filters.user || 'all'}
-            onValueChange={(value) =>
-              onFiltersChange({ ...filters, user: value === 'all' ? null : value })
-            }
-          >
-            <SelectTrigger className="w-45">
-              <SelectValue placeholder="全部用户" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部用户</SelectItem>
-              {filterOptions.users.map((user) => (
-                <SelectItem key={user} value={user}>
-                  {user}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={filterOptions.users.map((u) => ({ value: u, label: u }))}
+            value={filters.user}
+            onValueChange={(value) => onFiltersChange({ ...filters, user: value })}
+            placeholder="全部用户"
+            searchPlaceholder="搜索用户..."
+            emptyText="未找到用户"
+            allLabel="全部用户"
+            className="w-45"
+          />
         </div>
 
-        {/* Model Filter */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">模型</Label>
-          <Select
-            value={filters.model || 'all'}
-            onValueChange={(value) =>
-              onFiltersChange({ ...filters, model: value === 'all' ? null : value })
-            }
-          >
-            <SelectTrigger className="w-50">
-              <SelectValue placeholder="全部模型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部模型</SelectItem>
-              {filterOptions.models.map((model) => (
-                <SelectItem key={model} value={model}>
-                  {model}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={filterOptions.models.map((m) => ({ value: m, label: m }))}
+            value={filters.model}
+            onValueChange={(value) => onFiltersChange({ ...filters, model: value })}
+            placeholder="全部模型"
+            searchPlaceholder="搜索模型..."
+            emptyText="未找到模型"
+            allLabel="全部模型"
+            className="w-50"
+          />
         </div>
 
         <div className="space-y-2">
           <Label className="text-sm font-medium">令牌</Label>
-          <Select
-            value={filters.token || 'all'}
+          <SearchableSelect
+            options={filterOptions.tokens.map((t) => ({
+              value: `${t.name}::${t.username}`,
+              label: `${t.name} (${t.username})`,
+            }))}
+            value={tokenValue}
             onValueChange={(value) =>
-              onFiltersChange({ ...filters, token: value === 'all' ? null : value })
+              onFiltersChange({ ...filters, token: value ? value.split('::')[0] : null })
             }
-          >
-            <SelectTrigger className="w-50">
-              <SelectValue placeholder="全部令牌" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部令牌</SelectItem>
-              {filterOptions.tokens.map((token) => (
-                <SelectItem key={`${token.name} (${token.username})`} value={token.name}>
-                  {token.name} ({token.username})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="全部令牌"
+            searchPlaceholder="搜索令牌..."
+            emptyText="未找到令牌"
+            allLabel="全部令牌"
+            className="w-50"
+          />
         </div>
 
         {/* Refresh Button */}

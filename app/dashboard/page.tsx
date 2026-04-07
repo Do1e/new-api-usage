@@ -91,12 +91,10 @@ const DashboardPage = () => {
             refreshKey={refreshKey}
           />
 
-          {!filters.user && (
-            <UserPieCharts
-              filters={filters}
-              refreshKey={refreshKey}
-            />
-          )}
+          <UserPieCharts
+            filters={filters}
+            refreshKey={refreshKey}
+          />
         </div>
 
         {!filters.model && (

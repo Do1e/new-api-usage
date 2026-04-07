@@ -61,6 +61,7 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
         if (filters.endTime) params.append('endTime', filters.endTime.toString());
         if (filters.model) params.append('model', filters.model);
         if (filters.token) params.append('token', filters.token);
+        if (filters.user) params.append('user', filters.user);
 
         const response = await fetch(`/api/stats/users?${params}`);
         if (response.ok) {
