@@ -23,6 +23,7 @@ interface FilterState {
   endTime: number | null;
   user: string | null;
   model: string | null;
+  token: string | null;
 }
 
 interface LogEntry {
@@ -31,6 +32,7 @@ interface LogEntry {
   timeFormatted: string;
   user: string;
   model: string;
+  tokenName: string;
   channel: string;
   isStream: boolean;
   useTime: number;
@@ -75,6 +77,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
         if (filters.endTime) params.append('endTime', filters.endTime.toString());
         if (filters.user) params.append('user', filters.user);
         if (filters.model) params.append('model', filters.model);
+        if (filters.token) params.append('token', filters.token);
 
         const response = await fetch(`/api/logs?${params}`);
         if (response.ok) {
@@ -135,6 +138,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     <TableHead>时间</TableHead>
                     <TableHead>用户</TableHead>
                     <TableHead>模型</TableHead>
+                    <TableHead>令牌</TableHead>
                     <TableHead className="text-right">用时</TableHead>
                     <TableHead className="text-right">首字</TableHead>
                     <TableHead className="text-right">输入</TableHead>
@@ -145,7 +149,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                 <TableBody>
                   {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                         暂无日志
                       </TableCell>
                     </TableRow>
@@ -161,6 +165,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                             {log.model}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{log.tokenName || '-'}</TableCell>
                         <TableCell className="text-right font-mono">
                           {log.useTime}s
                         </TableCell>

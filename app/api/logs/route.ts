@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
+    const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
     // Build WHERE clause
@@ -75,6 +76,12 @@ export async function GET(request: NextRequest) {
       paramIndex++;
     }
 
+    if (token) {
+      conditions.push(`token_name = $${paramIndex}`);
+      params.push(token);
+      paramIndex++;
+    }
+
     if (channel) {
       conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
       params.push(channel);
@@ -96,6 +103,7 @@ export async function GET(request: NextRequest) {
         created_at,
         username,
         model_name,
+        token_name,
         channel_name,
         is_stream,
         use_time,
@@ -124,6 +132,7 @@ export async function GET(request: NextRequest) {
       created_at: number; 
       username: string; 
       model_name: string; 
+      token_name: string | null;
       channel_name: string; 
       is_stream: boolean;
       use_time: number; 
@@ -137,6 +146,7 @@ export async function GET(request: NextRequest) {
       timeFormatted: new Date(row.created_at * 1000).toLocaleString('zh-CN'),
       user: row.username || 'Unknown',
       model: row.model_name || 'Unknown',
+      tokenName: row.token_name || '',
       channel: row.channel_name || 'Unknown',
       isStream: row.is_stream,
       useTime: row.use_time || 0,

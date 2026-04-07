@@ -12,6 +12,7 @@ interface FilterState {
   endTime: number | null;
   user: string | null;
   model: string | null;
+  token: string | null;
 }
 
 interface SummaryStats {
@@ -40,6 +41,7 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
         if (filters.endTime) params.append('endTime', filters.endTime.toString());
         if (filters.user) params.append('user', filters.user);
         if (filters.model) params.append('model', filters.model);
+        if (filters.token) params.append('token', filters.token);
 
         const response = await fetch(`/api/stats/summary?${params}`);
         if (response.ok) {

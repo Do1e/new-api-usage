@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const model = searchParams.get('model');
+    const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
     // Build WHERE clause
@@ -63,6 +64,12 @@ export async function GET(request: NextRequest) {
     if (model) {
       conditions.push(`model_name = $${paramIndex}`);
       params.push(model);
+      paramIndex++;
+    }
+
+    if (token) {
+      conditions.push(`token_name = $${paramIndex}`);
+      params.push(token);
       paramIndex++;
     }
 

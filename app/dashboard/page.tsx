@@ -20,6 +20,7 @@ interface FilterState {
   endTime: number | null;
   user: string | null;
   model: string | null;
+  token: string | null;
 }
 
 const DashboardPage = () => {
@@ -30,6 +31,7 @@ const DashboardPage = () => {
     endTime: null,
     user: null,
     model: null,
+    token: null,
   });
   const [refreshKey, setRefreshKey] = useState(0);
 

@@ -29,6 +29,7 @@ interface FilterState {
   endTime: number | null;
   user: string | null;
   model: string | null;
+  token: string | null;
 }
 
 interface FiltersProps {
@@ -157,7 +158,8 @@ export const Filters = ({
   const [filterOptions, setFilterOptions] = useState<{
     users: string[];
     models: string[];
-  }>({ users: [], models: [] });
+    tokens: { name: string; username: string }[];
+  }>({ users: [], models: [], tokens: [] });
 
   // Fetch filter options
   useEffect(() => {
@@ -169,6 +171,7 @@ export const Filters = ({
           setFilterOptions({
             users: data.users,
             models: data.models,
+            tokens: data.tokens,
           });
         }
       } catch (error) {
@@ -237,6 +240,28 @@ export const Filters = ({
               {filterOptions.models.map((model) => (
                 <SelectItem key={model} value={model}>
                   {model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">令牌</Label>
+          <Select
+            value={filters.token || 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({ ...filters, token: value === 'all' ? null : value })
+            }
+          >
+            <SelectTrigger className="w-50">
+              <SelectValue placeholder="全部令牌" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部令牌</SelectItem>
+              {filterOptions.tokens.map((token) => (
+                <SelectItem key={`${token.name} (${token.username})`} value={token.name}>
+                  {token.name} ({token.username})
                 </SelectItem>
               ))}
             </SelectContent>

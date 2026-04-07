@@ -56,6 +56,15 @@ export async function GET(request: NextRequest) {
     `;
     const modelsResult = await query(modelsQuery);
 
+    const tokensQuery = `
+      SELECT DISTINCT token_name, username
+      FROM public.logs
+      WHERE token_name IS NOT NULL AND token_name <> ''
+      ORDER BY username, token_name
+      LIMIT 100
+    `;
+    const tokensResult = await query(tokensQuery);
+
     // Get unique channels
     const channelsQuery = `
       SELECT DISTINCT channel_name
@@ -69,6 +78,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       users: usersResult.rows.map((row: { username: string }) => row.username),
       models: modelsResult.rows.map((row: { model_name: string }) => row.model_name),
+      tokens: tokensResult.rows.map((row: { token_name: string; username: string }) => ({
+        name: row.token_name,
+        username: row.username,
+      })),
       channels: channelsResult.rows.map((row: { channel_name: string }) => row.channel_name),
     });
 

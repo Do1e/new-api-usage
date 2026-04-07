@@ -14,6 +14,7 @@ interface FilterState {
   endTime: number | null;
   user: string | null;
   model: string | null;
+  token: string | null;
 }
 
 interface UserPieChartsProps {
@@ -59,6 +60,7 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
         if (filters.startTime) params.append('startTime', filters.startTime.toString());
         if (filters.endTime) params.append('endTime', filters.endTime.toString());
         if (filters.model) params.append('model', filters.model);
+        if (filters.token) params.append('token', filters.token);
 
         const response = await fetch(`/api/stats/users?${params}`);
         if (response.ok) {
