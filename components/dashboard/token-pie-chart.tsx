@@ -6,6 +6,7 @@ import { Loader2, PieChart as PieChartIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { createPieLabelRenderer, formatPieValue, PieTooltipContent } from '@/lib/pie-chart';
 
 interface FilterState {
   startTime: number | null;
@@ -26,6 +27,7 @@ interface PieData {
 }
 
 const COLORS = ['#10b981', '#f97316', '#8b5cf6'];
+const renderLabel = createPieLabelRenderer(1);
 
 export const TokenPieChart = ({ filters, refreshKey }: TokenPieChartProps) => {
   const [data, setData] = useState<PieData[]>([]);
@@ -65,12 +67,6 @@ export const TokenPieChart = ({ filters, refreshKey }: TokenPieChartProps) => {
     fetchStats();
   }, [filters, refreshKey]);
 
-  const formatNumber = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)  }M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)  }K`;
-    return value.toString();
-  };
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -95,6 +91,8 @@ export const TokenPieChart = ({ filters, refreshKey }: TokenPieChartProps) => {
               </div>
             );
           }
+          const total = data.reduce((sum, item) => sum + item.value, 0);
+
           return (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -103,9 +101,7 @@ export const TokenPieChart = ({ filters, refreshKey }: TokenPieChartProps) => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name}: ${((percent || 0) * 100).toFixed(1)}%`
-                  }
+                  label={renderLabel}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -114,12 +110,7 @@ export const TokenPieChart = ({ filters, refreshKey }: TokenPieChartProps) => {
                     <Cell key={`cell-${entry.name}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                  formatter={(value) => [formatNumber(Number(value)), 'Tokens']}
-                />
+                <Tooltip content={(props) => <PieTooltipContent {...props} formatValue={formatPieValue} total={total} unit="Tokens" />} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>

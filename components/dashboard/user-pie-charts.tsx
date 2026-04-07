@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createPieLabelRenderer, formatPieValue, PieTooltipContent, PIE_CHART_COLORS } from '@/lib/pie-chart';
 
 interface FilterState {
   startTime: number | null;
@@ -33,11 +34,7 @@ interface PieData {
   name: string;
   value: number;
 }
-
-const COLORS = [
-  '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#ef4444', '#84cc16',
-];
+const renderLabel = createPieLabelRenderer();
 
 type TabType = 'calls' | 'totalTokens' | 'inputTokens' | 'cacheTokens' | 'outputTokens';
 
@@ -78,12 +75,6 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
     fetchUserStats();
   }, [filters, refreshKey]);
 
-  const formatNumber = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)  }M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)  }K`;
-    return value.toString();
-  };
-
   const preparePieData = (dataKey: TabType): PieData[] => {
     return userData
       .filter((u) => u[dataKey] > 0)
@@ -95,6 +86,9 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
   };
 
   const renderPieChart = (dataKey: TabType) => {
+    const data = preparePieData(dataKey);
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+
     if (loading) {
       return (
         <div className="h-75 flex items-center justify-center">
@@ -102,9 +96,6 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
         </div>
       );
     }
-
-    const data = preparePieData(dataKey);
-
     if (data.length === 0) {
       return (
         <div className="h-75 flex items-center justify-center text-muted-foreground">
@@ -121,23 +112,16 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, percent }) =>
-              `${name}: ${((percent || 0) * 100).toFixed(0)}%`
-            }
+            label={renderLabel}
             outerRadius={80}
             fill="#8884d8"
             dataKey="value"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${dataKey}-${entry.name}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${dataKey}-${entry.name}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
-            labelStyle={{ color: 'var(--popover-foreground)' }}
-            itemStyle={{ color: 'var(--popover-foreground)' }}
-            formatter={(value) => [formatNumber(Number(value)), TAB_CONFIG[dataKey].unit]}
-          />
+          <Tooltip content={(props) => <PieTooltipContent {...props} formatValue={formatPieValue} total={total} unit={TAB_CONFIG[dataKey].unit} />} />
           <Legend />
         </PieChart>
       </ResponsiveContainer>
