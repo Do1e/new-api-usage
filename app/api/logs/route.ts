@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { query } from '@/lib/db';
+import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
 
@@ -98,10 +99,16 @@ export async function GET(request: NextRequest) {
         channel_name,
         is_stream,
         use_time,
-        prompt_tokens as input_tokens,
+        ${INPUT_TOKENS_SQL} as input_tokens,
         completion_tokens as output_tokens,
-        COALESCE((other::json ->> 'cache_tokens')::bigint, 0) as cache_tokens,
-        COALESCE((other::json ->> 'frt')::bigint, 0) as first_token_time
+        ${CACHE_TOKENS_SQL} as cache_tokens,
+        CASE
+          WHEN other IS NOT NULL
+           AND other <> ''
+           AND other ~ '^\\s*\\{'
+          THEN COALESCE((other::json ->> 'frt')::bigint, 0)
+          ELSE 0
+        END as first_token_time
       FROM public.logs
       ${whereClause}
       ORDER BY created_at DESC

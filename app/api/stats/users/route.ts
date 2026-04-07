@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { query } from '@/lib/db';
+import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
 
@@ -78,17 +79,9 @@ export async function GET(request: NextRequest) {
       SELECT 
         COALESCE(username, 'Unknown') as username,
         COUNT(*) as calls,
-        COALESCE(SUM(prompt_tokens), 0) as input_tokens,
+        COALESCE(SUM(${INPUT_TOKENS_SQL}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(
-          CASE 
-            WHEN other IS NOT NULL 
-             AND other <> '' 
-             AND other ~ '^\\s*\\{'
-            THEN COALESCE((other::json ->> 'cache_tokens')::bigint, 0)
-            ELSE 0
-          END
-        ), 0) as cache_tokens
+        COALESCE(SUM(${CACHE_TOKENS_SQL}), 0) as cache_tokens
       FROM public.logs
       ${whereClause}
       GROUP BY username
