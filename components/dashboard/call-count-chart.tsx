@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CHART_COLORS } from '@/lib/chart';
 
 interface FilterState {
   startTime: number | null;
@@ -20,11 +21,6 @@ interface CallCountChartProps {
   filters: FilterState;
   refreshKey: number;
 }
-
-const COLORS = [
-  '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#ef4444', '#84cc16',
-];
 
 type MetricKey = 'calls' | 'total' | 'input' | 'output' | 'cache';
 
@@ -130,7 +126,7 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
                   key={username}
                   type="monotone"
                   dataKey={username}
-                  stroke={COLORS[index % COLORS.length]}
+                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}

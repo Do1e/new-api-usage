@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, MousePointerClick, ArrowDownToLine, ArrowUpFromLine, Archive, Database } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCompactNumber } from '@/lib/chart';
 
 interface FilterState {
   startTime: number | null;
@@ -24,16 +25,6 @@ interface SummaryStats {
 interface SummaryCardsProps {
   filters: FilterState;
   refreshKey: number;
-}
-
-function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(2)  }M`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(2)  }K`;
-  }
-  return num.toString();
 }
 
 export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
@@ -118,7 +109,7 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(card.value)}
+                {formatCompactNumber(card.value, { precision: 2 })}
               </div>
             )}
           </CardContent>

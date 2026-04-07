@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatCompactNumber } from '@/lib/chart';
 
 
 interface FilterState {
@@ -97,11 +98,6 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
     }
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000) return `${(num / 1000).toFixed(1)  }k`;
-    return num.toString();
-  };
-
   const formatFirstTokenTime = (firstTokenTime: number, isStream: boolean) => {
     if (!isStream) return '非流';
     return `${(firstTokenTime / 1000).toFixed(3)}s`;
@@ -172,13 +168,13 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                           {formatFirstTokenTime(log.firstTokenTime, log.isStream)}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          {formatNumber(log.inputTokens)}
+                          {formatCompactNumber(log.inputTokens, { lowercaseSuffix: true })}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          {formatNumber(log.cacheTokens)}
+                          {formatCompactNumber(log.cacheTokens, { lowercaseSuffix: true })}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          {formatNumber(log.outputTokens)}
+                          {formatCompactNumber(log.outputTokens, { lowercaseSuffix: true })}
                         </TableCell>
                       </TableRow>
                     ))

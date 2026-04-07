@@ -1,5 +1,7 @@
 'use client';
 
+import { CHART_COLORS, formatCompactNumber } from '@/lib/chart';
+
 interface PieLabelProps {
   name?: string;
   percent?: number;
@@ -16,17 +18,12 @@ interface PieTooltipContentProps {
   unit: string;
 }
 
-export const PIE_CHART_COLORS = [
-  '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#ef4444', '#84cc16',
-];
+export const PIE_CHART_COLORS = CHART_COLORS;
 
 export const MIN_LABEL_PERCENT = 0.02;
 
 export const formatPieValue = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)  }M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)  }K`;
-  return value.toString();
+  return formatCompactNumber(value);
 };
 
 export const createPieLabelRenderer = (precision = 0) => {
