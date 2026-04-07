@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, FileText, Loader2, RefreshCw } from 'lucide-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -63,6 +64,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
     total: 0,
     totalPages: 0,
   });
+  const [inputPage, setInputPage] = useState('');
   const [loading, setLoading] = useState(true);
   const showLoadingOverlay = loading && logs.length > 0;
 
@@ -203,6 +205,44 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     <ChevronLeft className="h-4 w-4" />
                     上一页
                   </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      className="h-8 w-14 text-center font-mono text-sm"
+                      value={inputPage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d+$/.test(val)) {
+                          setInputPage(val);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const page = parseInt(inputPage, 10);
+                          if (page >= 1 && page <= pagination.totalPages) {
+                            handlePageChange(page);
+                          }
+                          setInputPage('');
+                        }
+                      }}
+                      placeholder={pagination.page.toString()}
+                      disabled={loading}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2"
+                      disabled={loading || !inputPage}
+                      onClick={() => {
+                        const page = parseInt(inputPage, 10);
+                        if (page >= 1 && page <= pagination.totalPages) {
+                          handlePageChange(page);
+                        }
+                        setInputPage('');
+                      }}
+                    >
+                      跳转
+                    </Button>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
