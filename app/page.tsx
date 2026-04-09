@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { jwtVerify } from 'jose';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
+import { getSessionSecret } from '@/lib/env';
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -11,7 +11,7 @@ export default async function Home() {
 
   if (token) {
     try {
-      await jwtVerify(token, new TextEncoder().encode(SESSION_SECRET));
+      await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
       redirect('/dashboard');
     } catch {
       redirect('/login');

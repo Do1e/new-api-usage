@@ -5,8 +5,7 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { query } from '@/lib/db';
-
-const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
+import { getSessionSecret } from '@/lib/env';
 
 // Verify authentication
 async function verifyAuth(_request: NextRequest) {
@@ -18,7 +17,7 @@ async function verifyAuth(_request: NextRequest) {
   }
   
   try {
-    await jwtVerify(token, new TextEncoder().encode(SESSION_SECRET));
+    await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
   } catch {
     return false;

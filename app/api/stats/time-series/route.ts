@@ -5,9 +5,8 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { query } from '@/lib/db';
+import { getSessionSecret } from '@/lib/env';
 import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
-
-const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
 
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
@@ -18,7 +17,7 @@ async function verifyAuth(_request: NextRequest) {
   }
 
   try {
-    await jwtVerify(token, new TextEncoder().encode(SESSION_SECRET));
+    await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
   } catch {
     return false;

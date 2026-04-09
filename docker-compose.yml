@@ -1,6 +1,6 @@
 services:
   new-api-usage:
-    image: new-api-usage:latest
+    image: do1e/new-api-usage:latest
     container_name: new-api-usage
     network_mode: bridge
     ports:
@@ -8,7 +8,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
     env_file:
-      - .env.docker
+      # Copy the .env.example to .docker.env and fill in the required values before running
+      - .docker.env
     environment:
       - TZ=Asia/Shanghai
     restart: unless-stopped

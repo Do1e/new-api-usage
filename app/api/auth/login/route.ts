@@ -4,22 +4,13 @@ import { NextResponse } from 'next/server';
 
 import { SignJWT } from 'jose';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
+import { getDashboardPassword, getSessionSecret } from '@/lib/env';
 
 export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
     
-    const expectedPassword = process.env.DASHBOARD_PASSWORD;
-    
-    if (!expectedPassword) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-    
-    if (password !== expectedPassword) {
+    if (password !== getDashboardPassword()) {
       return NextResponse.json(
         { error: 'Invalid password' },
         { status: 401 }
@@ -30,7 +21,7 @@ export async function POST(request: NextRequest) {
     const token = await new SignJWT({ authenticated: true })
       .setProtectedHeader({ alg: 'HS256' })
       .setExpirationTime('24h')
-      .sign(new TextEncoder().encode(SESSION_SECRET));
+      .sign(new TextEncoder().encode(getSessionSecret()));
     
     // Set cookie
     const cookieStore = await cookies();

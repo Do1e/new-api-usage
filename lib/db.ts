@@ -1,8 +1,10 @@
 import { Pool } from 'pg';
 
+import { getDatabaseUrl } from '@/lib/env';
+
 // Create a connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: getDatabaseUrl(),
 });
 
 export async function query(text: string, params?: (string | number | boolean | null)[]) {

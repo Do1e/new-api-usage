@@ -153,11 +153,14 @@ public/                 # 静态资源
 
 需要以下环境变量（参考 `.env.example`）：
 - `DATABASE_URL`: PostgreSQL 连接字符串
+- `DASHBOARD_PASSWORD`: 仪表板登录密码
 - `SESSION_SECRET`: JWT 签名密钥
+
+所有的环境变量都应当在 `lib/env.ts` 中进行定义并使用 `zod` 验证。
 
 ## 注意事项
 
-1. 本项目**没有测试框架**，新增功能时请手动验证
+1. 包管理务必使用 **pnpm**，避免使用 npm 或 yarn
 2. 提交代码前会自动运行 lint 和 type-check，确保通过后再提交
 3. 使用 shadcn/ui 组件时，通过 `pnpm dlx shadcn add <组件名>` 安装
 4. 图标库使用 Lucide React
