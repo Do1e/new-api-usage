@@ -111,7 +111,7 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatCompactNumber(card.value, { precision: 2 })}
+                {formatCompactNumber(card.value, { precision: 3 })}
               </div>
             )}
           </CardContent>

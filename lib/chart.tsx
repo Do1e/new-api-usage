@@ -10,17 +10,27 @@ interface FormatCompactNumberOptions {
 
 export const formatCompactNumber = (
   value: number,
-  { lowercaseSuffix = false, precision = 1 }: FormatCompactNumberOptions = {},
+  { lowercaseSuffix = false, precision = 3 }: FormatCompactNumberOptions = {},
 ) => {
   const thousandSuffix = lowercaseSuffix ? 'k' : 'K';
   const millionSuffix = lowercaseSuffix ? 'm' : 'M';
+  const billionSuffix = lowercaseSuffix ? 'b' : 'B';
+  const trillionSuffix = lowercaseSuffix ? 't' : 'T';
 
-  if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(precision)}${millionSuffix}`;
+  if (value >= 1_000_000_000_000) {
+    return `${(value / 1_000_000_000_000).toFixed(precision)}${trillionSuffix}`;
   }
 
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(precision)}${thousandSuffix}`;
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(precision)}${billionSuffix}`;
+  }
+
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(precision)}${millionSuffix}`;
+  }
+
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(precision)}${thousandSuffix}`;
   }
 
   return value.toString();
