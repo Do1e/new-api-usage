@@ -2,13 +2,19 @@ import { Pool } from 'pg';
 
 import { getDatabaseUrl } from '@/lib/env';
 
-// Create a connection pool
-const pool = new Pool({
-  connectionString: getDatabaseUrl(),
-});
+let pool: Pool | null = null;
+
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: getDatabaseUrl(),
+    });
+  }
+  return pool;
+}
 
 export async function query(text: string, params?: (string | number | boolean | null)[]) {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const result = await client.query(text, params);
     return result;
@@ -17,4 +23,4 @@ export async function query(text: string, params?: (string | number | boolean | 
   }
 }
 
-export default pool;
+export default { query };
