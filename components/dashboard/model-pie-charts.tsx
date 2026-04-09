@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { Database, Loader2, MousePointerClick } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createPieLabelRenderer, formatPieValue, PieTooltipContent, PIE_CHART_COLORS } from '@/lib/pie-chart';
@@ -118,7 +118,6 @@ export const ModelPieCharts = ({ filters, refreshKey }: ModelPieChartsProps) => 
             ))}
           </Pie>
           <Tooltip content={(props) => <PieTooltipContent {...props} formatValue={formatPieValue} total={total} unit={unit === 'Calls' ? '调用' : 'Token'} />} />
-          <Legend fontSize={12} />
         </PieChart>
       </ResponsiveContainer>
     );

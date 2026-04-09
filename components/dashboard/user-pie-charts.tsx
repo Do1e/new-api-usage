@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { Loader2, PieChart as PieChartIcon, MousePointerClick, Database, ArrowDownToLine, Archive, ArrowUpFromLine } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -125,7 +125,6 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
             ))}
           </Pie>
           <Tooltip content={(props) => <PieTooltipContent {...props} formatValue={formatPieValue} total={total} unit={TAB_CONFIG[dataKey].unit} />} />
-          <Legend />
         </PieChart>
       </ResponsiveContainer>
     );
