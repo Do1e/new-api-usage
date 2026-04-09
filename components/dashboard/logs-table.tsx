@@ -140,6 +140,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     <TableHead>时间</TableHead>
                     <TableHead>用户</TableHead>
                     <TableHead>模型</TableHead>
+                    <TableHead>渠道</TableHead>
                     <TableHead>令牌</TableHead>
                     <TableHead className="text-right">用时</TableHead>
                     <TableHead className="text-right">首字</TableHead>
@@ -151,7 +152,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                 <TableBody>
                   {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                         暂无日志
                       </TableCell>
                     </TableRow>
@@ -165,6 +166,11 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {log.model}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {log.channel}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{log.tokenName || '-'}</TableCell>

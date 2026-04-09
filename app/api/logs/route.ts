@@ -53,45 +53,49 @@ export async function GET(request: NextRequest) {
     let paramIndex = 1;
 
     if (startTime) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`l.created_at >= $${paramIndex}`);
       params.push(parseInt(startTime));
       paramIndex++;
     }
 
     if (endTime) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`l.created_at <= $${paramIndex}`);
       params.push(parseInt(endTime));
       paramIndex++;
     }
 
     if (user) {
-      conditions.push(`(username = $${paramIndex} OR user_id::text = $${paramIndex})`);
+      conditions.push(`(l.username = $${paramIndex} OR l.user_id::text = $${paramIndex})`);
       params.push(user);
       paramIndex++;
     }
 
     if (model) {
-      conditions.push(`model_name = $${paramIndex}`);
+      conditions.push(`l.model_name = $${paramIndex}`);
       params.push(model);
       paramIndex++;
     }
 
     if (token) {
-      conditions.push(`token_name = $${paramIndex}`);
+      conditions.push(`l.token_name = $${paramIndex}`);
       params.push(token);
       paramIndex++;
     }
 
     if (channel) {
-      conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
+      conditions.push(`(l.channel_name = $${paramIndex} OR l.channel_id::text = $${paramIndex})`);
       params.push(channel);
       paramIndex++;
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const aliasedCacheTokensSql = CACHE_TOKENS_SQL.replaceAll('other', 'l.other');
+    const aliasedInputTokensSql = INPUT_TOKENS_SQL
+      .replaceAll('other', 'l.other')
+      .replaceAll('prompt_tokens', 'l.prompt_tokens');
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM public.logs ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM public.logs l ${whereClause}`;
     const countResult = await query(countQuery, params);
     const total = parseInt(countResult.rows[0].total);
 
@@ -99,27 +103,28 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
     const logsQuery = `
       SELECT 
-        id,
-        created_at,
-        username,
-        model_name,
-        token_name,
-        channel_name,
-        is_stream,
-        use_time,
-        ${INPUT_TOKENS_SQL} as input_tokens,
-        completion_tokens as output_tokens,
-        ${CACHE_TOKENS_SQL} as cache_tokens,
+        l.id,
+        l.created_at,
+        l.username,
+        l.model_name,
+        l.token_name,
+        COALESCE(l.channel_name, c.name) as channel_name,
+        l.is_stream,
+        l.use_time,
+        ${aliasedInputTokensSql} as input_tokens,
+        l.completion_tokens as output_tokens,
+        ${aliasedCacheTokensSql} as cache_tokens,
         CASE
-          WHEN other IS NOT NULL
-           AND other <> ''
-           AND other ~ '^\\s*\\{'
-          THEN COALESCE((other::json ->> 'frt')::bigint, 0)
+          WHEN l.other IS NOT NULL
+           AND l.other <> ''
+           AND l.other ~ '^\\s*\\{'
+          THEN COALESCE((l.other::json ->> 'frt')::bigint, 0)
           ELSE 0
         END as first_token_time
-      FROM public.logs
+      FROM public.logs l
+      LEFT JOIN public.channels c ON l.channel_id::integer = c.id
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY l.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
