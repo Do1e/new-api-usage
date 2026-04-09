@@ -48,13 +48,19 @@ docker run -d \
 
 ### Docker Compose
 
-1. 创建 `.env` 文件：
-   ```env
-   DATABASE_URL=postgres://user:pass@host:5432/db
-   DASHBOARD_PASSWORD=your_password
-   SESSION_SECRET=your_random_secret
-   ```
-2. 运行 `docker compose up -d`。
+docker-compose.yml 文件已包含完整配置，按需（必填项可搜索 `edit-me`）修改环境变量后运行：
+
+```bash
+docker compose up -d
+```
+
+更新镜像：
+
+```bash
+docker compose pull
+docker compose down
+docker compose up -d
+```
 
 ---
 

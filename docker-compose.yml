@@ -1,15 +1,83 @@
 services:
-  new-api-usage:
-    image: do1e/new-api-usage:latest
-    container_name: new-api-usage
-    network_mode: bridge
-    ports:
-      - "3000:3000"
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-    env_file:
-      # Copy the .env.example to .docker.env and fill in the required values before running
-      - .docker.env
+  new-api:
+    image: calciumion/new-api
+    restart: unless-stopped
+    hostname: new-api
+    container_name: new-api
     environment:
       - TZ=Asia/Shanghai
+      - STREAMING_TIMEOUT=300
+      - MEMORY_CACHE_ENABLED=true
+      - ERROR_LOG_ENABLED=true
+      - REDIS_CONN_STRING=redis://redis-new-api
+      - SQL_DSN=postgresql://root:edit-me@postgres-new-api:5432/new-api
+    volumes:
+      - ./data/newapi:/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 3000:3000
+    networks:
+      - new-api
+    depends_on:
+      - redis
+      - postgres
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:alpine
+    hostname: redis-new-api
+    container_name: redis-new-api
+    user: root
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data/redis:/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - new-api
     restart: unless-stopped
+
+  postgres:
+    image: postgres:18
+    container_name: postgres-new-api
+    hostname: postgres-new-api
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: edit-me
+      POSTGRES_DB: new-api
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/postgres:/var/lib/postgresql
+    networks:
+      - new-api
+    restart: unless-stopped
+
+  new-api-usage:
+    image: do1e/new-api-usage
+    container_name: new-api-usage
+    hostname: new-api-usage
+    ports:
+      - 3001:3000
+    environment:
+      - TZ=Asia/Shanghai
+      - DATABASE_URL=postgresql://root:edit-me@postgres-new-api:5432/new-api
+      - DASHBOARD_PASSWORD=edit-me
+      - SESSION_SECRET=edit-me
+    networks:
+      - new-api
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+networks:
+  new-api:
+    driver: bridge
