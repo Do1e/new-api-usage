@@ -8,7 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CHART_COLORS } from '@/lib/chart';
+import { CHART_COLORS, formatCompactNumber } from '@/lib/chart';
 
 interface FilterState {
   startTime: number | null;
@@ -115,12 +115,25 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
               <YAxis
                 tick={{ fontSize: 12 }}
                 allowDecimals={false}
+                tickFormatter={(value) => formatCompactNumber(value)}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
                 labelStyle={{ color: 'var(--popover-foreground)' }}
                 itemStyle={{ color: 'var(--popover-foreground)' }}
+                itemSorter={(item) => {
+                  const value = typeof item.value === 'number' ? item.value : Number(item.value);
+
+                  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : -value;
+                }}
                 labelFormatter={(label) => format(new Date(Number(label) * 1000), 'yyyy-MM-dd HH:mm')}
+                formatter={(value) => {
+                  if (typeof value !== 'number') {
+                    return value;
+                  }
+
+                  return formatCompactNumber(value);
+                }}
               />
               <Legend />
               {users.map((username, index) => (

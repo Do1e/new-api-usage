@@ -23,4 +23,6 @@ export async function query(text: string, params?: (string | number | boolean | 
   }
 }
 
-export default { query };
+const db = { query };
+
+export default db;
