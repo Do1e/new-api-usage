@@ -1,22 +1,28 @@
 import { cookies } from 'next/headers';
-import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+import {
+  buildEqualityOrTextCastCondition,
+  createSqlContext,
+  getCacheTokensSql,
+  getInputTokensSql,
+  getLogsTableName,
+} from '@/lib/sql-dialect';
 
 // Verify authentication
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
-  
+
   if (!token) {
     return false;
   }
-  
+
   try {
     await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
@@ -43,58 +49,77 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
-    // Build WHERE clause
-    const conditions: string[] = [];
-    const params: (string | number | null)[] = [];
-    let paramIndex = 1;
+    let startTimeTs: number | null = null;
+    let endTimeTs: number | null = null;
 
     if (startTime) {
-      conditions.push(`created_at >= $${paramIndex}`);
-      params.push(parseInt(startTime));
-      paramIndex++;
+      const parsedStartTime = parseInt(startTime, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 }
+        );
+      }
+      startTimeTs = parsedStartTime;
     }
 
     if (endTime) {
-      conditions.push(`created_at <= $${paramIndex}`);
-      params.push(parseInt(endTime));
-      paramIndex++;
+      const parsedEndTime = parseInt(endTime, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 }
+        );
+      }
+      endTimeTs = parsedEndTime;
+    }
+
+    const dialect = getDatabaseDialect();
+    const sql = createSqlContext(dialect);
+    const logsTableName = getLogsTableName(dialect);
+    const cacheTokensSql = getCacheTokensSql(dialect, 'other');
+    const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
+
+    // Build WHERE clause
+    const conditions: string[] = [];
+
+    if (startTimeTs !== null) {
+      conditions.push(`created_at >= ${sql.addParam(startTimeTs)}`);
+    }
+
+    if (endTimeTs !== null) {
+      conditions.push(`created_at <= ${sql.addParam(endTimeTs)}`);
     }
 
     if (user) {
-      conditions.push(`(username = $${paramIndex} OR user_id::text = $${paramIndex})`);
-      params.push(user);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'username', 'user_id', user));
     }
 
     if (token) {
-      conditions.push(`token_name = $${paramIndex}`);
-      params.push(token);
-      paramIndex++;
+      conditions.push(`token_name = ${sql.addParam(token)}`);
     }
 
     if (channel) {
-      conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
-      params.push(channel);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'channel_name', 'channel_id', channel));
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get model statistics
     const modelQuery = `
-      SELECT 
+      SELECT
         COALESCE(model_name, 'Unknown') as model,
         COUNT(*) as calls,
-        COALESCE(SUM(${INPUT_TOKENS_SQL}), 0) as input_tokens,
+        COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${CACHE_TOKENS_SQL}), 0) as cache_tokens
-      FROM public.logs
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+      FROM ${logsTableName}
       ${whereClause}
       GROUP BY model_name
       ORDER BY calls DESC
     `;
 
-    const result = await query(modelQuery, params);
+    const result = await query(modelQuery, sql.params);
 
     const data = result.rows.map((row: { model: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string }) => ({
       model: row.model,

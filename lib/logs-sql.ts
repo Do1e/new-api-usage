@@ -1,20 +1,11 @@
-const JSON_LOG_SQL = `other IS NOT NULL AND other <> '' AND other ~ '^\\s*\\{'`;
+import { parseDatabaseUrl } from '@/lib/database-url';
+import { getDatabaseUrl } from '@/lib/env';
+import { getCacheTokensSql, getInputTokensSql } from '@/lib/sql-dialect';
 
-const CLAUDE_MESSAGES_SQL = `other IS NOT NULL AND other <> '' AND other ~ '"request_conversion"\\s*:\\s*\\[[^\\]]*"Claude Messages"'`;
+const runtimeDialect = parseDatabaseUrl(getDatabaseUrl()).dialect;
 
-export const CACHE_TOKENS_SQL = `
-  CASE
-    WHEN ${JSON_LOG_SQL}
-    THEN COALESCE((other::json ->> 'cache_tokens')::bigint, 0)
-    ELSE 0
-  END
-`;
+export const CACHE_TOKENS_SQL = getCacheTokensSql(runtimeDialect, 'other');
 
-export const INPUT_TOKENS_SQL = `
-  COALESCE(prompt_tokens, 0) +
-  CASE
-    WHEN ${CLAUDE_MESSAGES_SQL}
-    THEN ${CACHE_TOKENS_SQL}
-    ELSE 0
-  END
-`;
+export const INPUT_TOKENS_SQL = getInputTokensSql(runtimeDialect, 'prompt_tokens', 'other');
+
+export { getCacheTokensSql, getInputTokensSql } from '@/lib/sql-dialect';
