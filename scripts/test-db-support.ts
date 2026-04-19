@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { run } from 'node:test';
+import * as nodeTest from 'node:test';
 
 const TEST_DIRECTORY = 'tests';
 const TEST_FILE_SUFFIX = '.test.ts';
@@ -42,6 +42,10 @@ const collectTestFiles = async (directory: string): Promise<string[]> => {
 };
 
 const main = async (): Promise<void> => {
+  if (typeof nodeTest.run !== 'function') {
+    fail(new Error('This test runner requires a Node.js release with node:test run() support.'));
+  }
+
   const testFiles = await collectTestFiles(TEST_DIRECTORY);
 
   if (testFiles.length === 0) {
@@ -49,7 +53,7 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  const stream = run({
+  const stream = nodeTest.run({
     concurrency: false,
     files: testFiles,
   });

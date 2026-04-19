@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky",
-    "test": "node -e 'const fs=require(\"node:fs\"); const Module=require(\"node:module\"); const ts=require(\"typescript\"); const filePath=\"scripts/test-db-support.ts\"; const source=fs.readFileSync(filePath,\"utf8\"); const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText; const runner=new Module.Module(filePath); runner.filename=filePath; runner.paths=Module._nodeModulePaths(process.cwd()); runner._compile(output,filePath);'",
+    "test": "node scripts/run-ts.mjs scripts/test-db-support.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
