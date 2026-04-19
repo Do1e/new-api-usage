@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
 import {
   createSqlContext,
   getCacheTokensSql,
@@ -11,6 +13,42 @@ import {
   getLogsTableName,
   getTextCastSql,
 } from '@/lib/sql-dialect';
+
+const loadLogsSqlExports = (databaseUrl: string) => {
+  const tempDirectory = mkdtempSync(join(process.cwd(), '.logs-sql-test-'));
+  const entryFilePath = join(tempDirectory, 'load-logs-sql.ts');
+
+  writeFileSync(
+    entryFilePath,
+    `import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+
+console.log(JSON.stringify({ CACHE_TOKENS_SQL, INPUT_TOKENS_SQL }));
+`,
+  );
+
+  try {
+    const output = execFileSync(
+      'node',
+      ['scripts/run-ts.mjs', entryFilePath],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          DATABASE_URL: databaseUrl,
+          TMPDIR: process.cwd(),
+        },
+      },
+    );
+
+    return JSON.parse(output) as {
+      CACHE_TOKENS_SQL: string;
+      INPUT_TOKENS_SQL: string;
+    };
+  } finally {
+    rmSync(tempDirectory, { force: true, recursive: true });
+  }
+};
 
 describe('createSqlContext', () => {
   it('builds postgres placeholders in insertion order', () => {
@@ -64,8 +102,21 @@ describe('metric SQL helpers', () => {
     assert.match(getFirstTokenTimeSql('mysql', 'l.other'), /JSON_EXTRACT\(l\.other, '\$\.frt'\)/);
   });
 
-  it('keeps the legacy logs-sql exports aligned with postgres behavior', () => {
+  it('keeps the logs-sql compatibility exports aligned with postgres runtime', () => {
+    const { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } = loadLogsSqlExports(
+      'postgres://user:pass@localhost:5432/app',
+    );
+
     assert.equal(CACHE_TOKENS_SQL, getCacheTokensSql('postgres', 'other'));
     assert.equal(INPUT_TOKENS_SQL, getInputTokensSql('postgres', 'prompt_tokens', 'other'));
+  });
+
+  it('switches the logs-sql compatibility exports for mysql runtime', () => {
+    const { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } = loadLogsSqlExports(
+      'mysql://user:pass@localhost:3306/app',
+    );
+
+    assert.equal(CACHE_TOKENS_SQL, getCacheTokensSql('mysql', 'other'));
+    assert.equal(INPUT_TOKENS_SQL, getInputTokensSql('mysql', 'prompt_tokens', 'other'));
   });
 });

@@ -1,7 +1,11 @@
+import { parseDatabaseUrl } from '@/lib/database-url';
+import { getDatabaseUrl } from '@/lib/env';
 import { getCacheTokensSql, getInputTokensSql } from '@/lib/sql-dialect';
 
-export const CACHE_TOKENS_SQL = getCacheTokensSql('postgres', 'other');
+const runtimeDialect = parseDatabaseUrl(getDatabaseUrl()).dialect;
 
-export const INPUT_TOKENS_SQL = getInputTokensSql('postgres', 'prompt_tokens', 'other');
+export const CACHE_TOKENS_SQL = getCacheTokensSql(runtimeDialect, 'other');
+
+export const INPUT_TOKENS_SQL = getInputTokensSql(runtimeDialect, 'prompt_tokens', 'other');
 
 export { getCacheTokensSql, getInputTokensSql } from '@/lib/sql-dialect';
