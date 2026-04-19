@@ -13,44 +13,68 @@ type LegacyQueryRow = any;
 type QueryResult<TRow = LegacyQueryRow> = {
   rows: TRow[];
 };
+type PostgresPoolState = {
+  connectionString: string;
+  pool: Pool;
+};
+type MySqlPoolState = {
+  key: string;
+  pool: MySqlPool;
+};
 
-const databaseConfig = parseDatabaseUrl(getDatabaseUrl());
+const MYSQL_POSTGRES_SQL_GUARD_MESSAGE =
+  'MySQL runtime does not support Postgres-specific SQL yet. Refactor this query before using a MySQL DATABASE_URL.';
+const POSTGRES_CAST_PATTERN = /::[a-zA-Z_][a-zA-Z0-9_\[\]]*/;
+const POSTGRES_PLACEHOLDER_PATTERN = /\$\d+\b/;
+const POSTGRES_SCHEMA_PATTERN = /\bpublic\./i;
 
-let postgresPool: Pool | null = null;
-let mysqlPool: MySqlPool | null = null;
+let postgresPoolState: PostgresPoolState | null = null;
+let mysqlPoolState: MySqlPoolState | null = null;
 
-const getPostgresConfig = () => {
+const getDatabaseConfig = () => parseDatabaseUrl(getDatabaseUrl());
+
+const getPostgresPool = (databaseConfig: ReturnType<typeof getDatabaseConfig>) => {
   if (databaseConfig.dialect !== 'postgres') {
-    throw new Error('Postgres config requested for a non-Postgres DATABASE_URL.');
+    throw new Error('Postgres pool requested for a non-Postgres DATABASE_URL.');
   }
 
-  return databaseConfig;
+  if (!postgresPoolState || postgresPoolState.connectionString !== databaseConfig.connectionString) {
+    postgresPoolState = {
+      connectionString: databaseConfig.connectionString,
+      pool: new Pool({
+        connectionString: databaseConfig.connectionString,
+      }),
+    };
+  }
+
+  return postgresPoolState.pool;
 };
 
-const getMySqlConfig = () => {
+const getMySqlPool = (databaseConfig: ReturnType<typeof getDatabaseConfig>) => {
   if (databaseConfig.dialect !== 'mysql') {
-    throw new Error('MySQL config requested for a non-MySQL DATABASE_URL.');
+    throw new Error('MySQL pool requested for a non-MySQL DATABASE_URL.');
   }
 
-  return databaseConfig;
+  const connectionKey = JSON.stringify(databaseConfig.connection);
+
+  if (!mysqlPoolState || mysqlPoolState.key !== connectionKey) {
+    mysqlPoolState = {
+      key: connectionKey,
+      pool: createPool(databaseConfig.connection),
+    };
+  }
+
+  return mysqlPoolState.pool;
 };
 
-const getPostgresPool = () => {
-  if (!postgresPool) {
-    postgresPool = new Pool({
-      connectionString: getPostgresConfig().connectionString,
-    });
+const assertMySqlCompatibleSql = (text: string) => {
+  if (
+    POSTGRES_PLACEHOLDER_PATTERN.test(text)
+    || POSTGRES_CAST_PATTERN.test(text)
+    || POSTGRES_SCHEMA_PATTERN.test(text)
+  ) {
+    throw new Error(`${MYSQL_POSTGRES_SQL_GUARD_MESSAGE} Query snippet: ${text.slice(0, 160)}`);
   }
-
-  return postgresPool;
-};
-
-const getMySqlPool = () => {
-  if (!mysqlPool) {
-    mysqlPool = createPool(getMySqlConfig().connection);
-  }
-
-  return mysqlPool;
 };
 
 const normalizeMySqlRows = <TRow = LegacyQueryRow>(rows: RowDataPacket[] | RowDataPacket[][]): QueryResult<TRow> => {
@@ -69,14 +93,16 @@ const normalizeMySqlRows = <TRow = LegacyQueryRow>(rows: RowDataPacket[] | RowDa
   };
 };
 
-export const getDatabaseDialect = () => databaseConfig.dialect;
+export const getDatabaseDialect = () => getDatabaseConfig().dialect;
 
 export async function query<TRow = LegacyQueryRow>(
   text: string,
   params?: QueryParam[],
 ): Promise<QueryResult<TRow>> {
+  const databaseConfig = getDatabaseConfig();
+
   if (databaseConfig.dialect === 'postgres') {
-    const client = await getPostgresPool().connect();
+    const client = await getPostgresPool(databaseConfig).connect();
 
     try {
       const result = await client.query(text, params);
@@ -89,7 +115,9 @@ export async function query<TRow = LegacyQueryRow>(
     }
   }
 
-  const [rows] = await getMySqlPool().execute<RowDataPacket[]>(text, params ?? []);
+  assertMySqlCompatibleSql(text);
+
+  const [rows] = await getMySqlPool(databaseConfig).execute<RowDataPacket[]>(text, params ?? []);
 
   return normalizeMySqlRows<TRow>(rows);
 }
