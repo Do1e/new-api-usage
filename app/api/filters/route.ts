@@ -1,21 +1,22 @@
 import { cookies } from 'next/headers';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
+import { getLogsTableName } from '@/lib/sql-dialect';
 
 // Verify authentication
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
-  
+
   if (!token) {
     return false;
   }
-  
+
   try {
     await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
@@ -35,10 +36,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const dialect = getDatabaseDialect();
+    const logsTableName = getLogsTableName(dialect);
+
     // Get unique users
     const usersQuery = `
       SELECT DISTINCT username
-      FROM public.logs
+      FROM ${logsTableName}
       WHERE username IS NOT NULL AND username <> ''
       ORDER BY username
       LIMIT 100
@@ -48,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Get unique models
     const modelsQuery = `
       SELECT DISTINCT model_name
-      FROM public.logs
+      FROM ${logsTableName}
       WHERE model_name IS NOT NULL AND model_name <> ''
       ORDER BY model_name
       LIMIT 100
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     const tokensQuery = `
       SELECT DISTINCT token_name, username
-      FROM public.logs
+      FROM ${logsTableName}
       WHERE token_name IS NOT NULL AND token_name <> ''
       ORDER BY username, token_name
       LIMIT 100
@@ -67,7 +71,7 @@ export async function GET(request: NextRequest) {
     // Get unique channels
     const channelsQuery = `
       SELECT DISTINCT channel_name
-      FROM public.logs
+      FROM ${logsTableName}
       WHERE channel_name IS NOT NULL AND channel_name <> ''
       ORDER BY channel_name
       LIMIT 100
@@ -83,7 +87,6 @@ export async function GET(request: NextRequest) {
       })),
       channels: channelsResult.rows.map((row: { channel_name: string }) => row.channel_name),
     });
-
   } catch (error) {
     console.error('Filters API error:', error);
     return NextResponse.json(
