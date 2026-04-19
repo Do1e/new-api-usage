@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky",
+    "test": "node --experimental-strip-types scripts/test-db-support.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
