@@ -42,14 +42,38 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const _startTime = searchParams.get('startTime');
+    const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
-    const endTs = endTime ? parseInt(endTime) : Math.floor(Date.now() / 1000);
+    let startTimeTs: number | null = null;
+    if (startTime) {
+      const parsedStartTime = parseInt(startTime, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 },
+        );
+      }
+      startTimeTs = parsedStartTime;
+    }
+
+    let endTimeTs: number | null = null;
+    if (endTime) {
+      const parsedEndTime = parseInt(endTime, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 },
+        );
+      }
+      endTimeTs = parsedEndTime;
+    }
+
+    const endTs = endTimeTs ?? Math.floor(Date.now() / 1000);
     let endHour = Math.floor(endTs / 3600) * 3600;
     if (endTs === endHour) {
       endHour -= 3600;
@@ -63,8 +87,10 @@ export async function GET(request: NextRequest) {
     const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
     const hourBucketSql = getHourBucketSql(dialect, 'created_at');
 
+    const startBound = startTimeTs !== null ? Math.max(startHour, startTimeTs) : startHour;
+
     const conditions: string[] = [
-      `created_at >= ${sql.addParam(startHour)}`,
+      `created_at >= ${sql.addParam(startBound)}`,
       `created_at < ${sql.addParam(endHour + 3600)}`,
     ];
 

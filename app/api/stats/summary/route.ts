@@ -50,6 +50,31 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
+    let startTimeTs: number | null = null;
+    let endTimeTs: number | null = null;
+
+    if (startTime) {
+      const parsedStartTime = parseInt(startTime, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 }
+        );
+      }
+      startTimeTs = parsedStartTime;
+    }
+
+    if (endTime) {
+      const parsedEndTime = parseInt(endTime, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 }
+        );
+      }
+      endTimeTs = parsedEndTime;
+    }
+
     const dialect = getDatabaseDialect();
     const sql = createSqlContext(dialect);
     const logsTableName = getLogsTableName(dialect);
@@ -60,12 +85,12 @@ export async function GET(request: NextRequest) {
     // Build WHERE clause
     const conditions: string[] = [];
 
-    if (startTime) {
-      conditions.push(`created_at >= ${sql.addParam(parseInt(startTime))}`);
+    if (startTimeTs !== null) {
+      conditions.push(`created_at >= ${sql.addParam(startTimeTs)}`);
     }
 
-    if (endTime) {
-      conditions.push(`created_at <= ${sql.addParam(parseInt(endTime))}`);
+    if (endTimeTs !== null) {
+      conditions.push(`created_at <= ${sql.addParam(endTimeTs)}`);
     }
 
     if (user) {
