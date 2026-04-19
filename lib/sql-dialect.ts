@@ -7,6 +7,13 @@ type SqlContext = {
   params: QueryParam[];
 };
 
+export const buildEqualityOrTextCastCondition = (
+  dialect: DatabaseDialect,
+  column: string,
+  castColumn: string,
+  placeholder: string,
+): string => `(${column} = ${placeholder} OR ${getTextCastSql(dialect, castColumn)} = ${placeholder})`;
+
 const getJsonObjectGuardSql = (dialect: DatabaseDialect, otherColumn: string) => (
   dialect === 'postgres'
     ? `${otherColumn} IS NOT NULL AND ${otherColumn} <> '' AND ${otherColumn} ~ '^\\s*\\{'`

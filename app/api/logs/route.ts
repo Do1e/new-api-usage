@@ -1,12 +1,21 @@
 import { cookies } from 'next/headers';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+import {
+  buildEqualityOrTextCastCondition,
+  createSqlContext,
+  getCacheTokensSql,
+  getChannelsTableName,
+  getFirstTokenTimeSql,
+  getInputTokensSql,
+  getLogsTableName,
+  getTextCastSql,
+} from '@/lib/sql-dialect';
 
 // Verify authentication
 async function verifyAuth(_request: NextRequest) {
@@ -46,60 +55,55 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
+    const dialect = getDatabaseDialect();
+    const sql = createSqlContext(dialect);
+    const logsTableName = getLogsTableName(dialect);
+    const channelsTableName = getChannelsTableName(dialect);
+
     // Build WHERE clause
     const conditions: string[] = [];
-    const params: (string | number | null)[] = [];
-    let paramIndex = 1;
 
     if (startTime) {
-      conditions.push(`l.created_at >= $${paramIndex}`);
-      params.push(parseInt(startTime));
-      paramIndex++;
+      conditions.push(`l.created_at >= ${sql.addParam(parseInt(startTime, 10))}`);
     }
 
     if (endTime) {
-      conditions.push(`l.created_at <= $${paramIndex}`);
-      params.push(parseInt(endTime));
-      paramIndex++;
+      conditions.push(`l.created_at <= ${sql.addParam(parseInt(endTime, 10))}`);
     }
 
     if (user) {
-      conditions.push(`(l.username = $${paramIndex} OR l.user_id::text = $${paramIndex})`);
-      params.push(user);
-      paramIndex++;
+      const placeholder = sql.addParam(user);
+      conditions.push(buildEqualityOrTextCastCondition(dialect, 'l.username', 'l.user_id', placeholder));
     }
 
     if (model) {
-      conditions.push(`l.model_name = $${paramIndex}`);
-      params.push(model);
-      paramIndex++;
+      conditions.push(`l.model_name = ${sql.addParam(model)}`);
     }
 
     if (token) {
-      conditions.push(`l.token_name = $${paramIndex}`);
-      params.push(token);
-      paramIndex++;
+      conditions.push(`l.token_name = ${sql.addParam(token)}`);
     }
 
     if (channel) {
-      conditions.push(`(l.channel_name = $${paramIndex} OR l.channel_id::text = $${paramIndex})`);
-      params.push(channel);
-      paramIndex++;
+      const placeholder = sql.addParam(channel);
+      conditions.push(buildEqualityOrTextCastCondition(dialect, 'l.channel_name', 'l.channel_id', placeholder));
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const aliasedCacheTokensSql = CACHE_TOKENS_SQL.replaceAll('other', 'l.other');
-    const aliasedInputTokensSql = INPUT_TOKENS_SQL
-      .replaceAll('other', 'l.other')
-      .replaceAll('prompt_tokens', 'l.prompt_tokens');
+    const cacheTokensSql = getCacheTokensSql(dialect, 'l.other');
+    const inputTokensSql = getInputTokensSql(dialect, 'l.prompt_tokens', 'l.other');
+    const firstTokenTimeSql = getFirstTokenTimeSql(dialect, 'l.other');
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM public.logs l ${whereClause}`;
-    const countResult = await query(countQuery, params);
+    const countQuery = `SELECT COUNT(*) as total FROM ${logsTableName} l ${whereClause}`;
+    const countResult = await query(countQuery, sql.params);
     const total = parseInt(countResult.rows[0].total);
 
     // Get paginated logs
     const offset = (page - 1) * limit;
+    const limitPlaceholder = sql.addParam(limit);
+    const offsetPlaceholder = sql.addParam(offset);
+    const channelJoinSql = `${getTextCastSql(dialect, 'l.channel_id')} = ${getTextCastSql(dialect, 'c.id')}`;
     const logsQuery = `
       SELECT 
         l.id,
@@ -110,26 +114,18 @@ export async function GET(request: NextRequest) {
         COALESCE(l.channel_name, c.name) as channel_name,
         l.is_stream,
         l.use_time,
-        ${aliasedInputTokensSql} as input_tokens,
+        ${inputTokensSql} as input_tokens,
         l.completion_tokens as output_tokens,
-        ${aliasedCacheTokensSql} as cache_tokens,
-        CASE
-          WHEN l.other IS NOT NULL
-           AND l.other <> ''
-           AND l.other ~ '^\\s*\\{'
-          THEN COALESCE((l.other::json ->> 'frt')::bigint, 0)
-          ELSE 0
-        END as first_token_time
-      FROM public.logs l
-      LEFT JOIN public.channels c ON l.channel_id::integer = c.id
+        ${cacheTokensSql} as cache_tokens,
+        ${firstTokenTimeSql} as first_token_time
+      FROM ${logsTableName} l
+      LEFT JOIN ${channelsTableName} c ON ${channelJoinSql}
       ${whereClause}
       ORDER BY l.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
     `;
-    
-    params.push(limit, offset);
 
-    const logsResult = await query(logsQuery, params);
+    const logsResult = await query(logsQuery, sql.params);
 
     const logs = logsResult.rows.map((row: { 
       id: number; 
