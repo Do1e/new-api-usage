@@ -21,11 +21,11 @@ import {
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
-  
+
   if (!token) {
     return false;
   }
-  
+
   try {
     await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
@@ -46,14 +46,55 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const startTime = searchParams.get('startTime');
-    const endTime = searchParams.get('endTime');
+    const pageRaw = searchParams.get('page') ?? '1';
+    const limitRaw = searchParams.get('limit') ?? '20';
+    const startTimeRaw = searchParams.get('startTime');
+    const endTimeRaw = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
+
+    const page = parseInt(pageRaw, 10);
+    const limit = parseInt(limitRaw, 10);
+    let startTime: number | null = null;
+    let endTime: number | null = null;
+
+    if (startTimeRaw) {
+      const parsedStartTime = parseInt(startTimeRaw, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 }
+        );
+      }
+      startTime = parsedStartTime;
+    }
+
+    if (endTimeRaw) {
+      const parsedEndTime = parseInt(endTimeRaw, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 }
+        );
+      }
+      endTime = parsedEndTime;
+    }
+
+    if (!Number.isFinite(page) || page <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid page' },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(limit) || limit <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid limit' },
+        { status: 400 }
+      );
+    }
 
     const dialect = getDatabaseDialect();
     const sql = createSqlContext(dialect);
@@ -63,12 +104,12 @@ export async function GET(request: NextRequest) {
     // Build WHERE clause
     const conditions: string[] = [];
 
-    if (startTime) {
-      conditions.push(`l.created_at >= ${sql.addParam(parseInt(startTime, 10))}`);
+    if (startTime !== null) {
+      conditions.push(`l.created_at >= ${sql.addParam(startTime)}`);
     }
 
-    if (endTime) {
-      conditions.push(`l.created_at <= ${sql.addParam(parseInt(endTime, 10))}`);
+    if (endTime !== null) {
+      conditions.push(`l.created_at <= ${sql.addParam(endTime)}`);
     }
 
     if (user) {
@@ -95,7 +136,7 @@ export async function GET(request: NextRequest) {
     // Get total count
     const countQuery = `SELECT COUNT(*) as total FROM ${logsTableName} l ${whereClause}`;
     const countResult = await query(countQuery, sql.params);
-    const total = parseInt(countResult.rows[0].total);
+    const total = parseInt(countResult.rows[0].total, 10);
 
     // Get paginated logs
     const offset = (page - 1) * limit;
