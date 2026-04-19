@@ -1,11 +1,9 @@
-import * as fsPromises from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { run } from 'node:test';
 
-const { glob } = fsPromises as typeof fsPromises & {
-  glob: (pattern: string) => AsyncIterable<string>;
-};
-
-const MINIMUM_NODE_MAJOR = 22;
+const TEST_DIRECTORY = 'tests';
+const TEST_FILE_SUFFIX = '.test.ts';
 
 const fail = (error: unknown): never => {
   if (error instanceof Error) {
@@ -17,24 +15,34 @@ const fail = (error: unknown): never => {
   process.exit(1);
 };
 
-const collectTestFiles = async (): Promise<string[]> => {
+const collectTestFiles = async (directory: string): Promise<string[]> => {
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
+  });
   const testFiles: string[] = [];
 
-  for await (const testFile of glob('tests/**/*.test.ts')) {
-    testFiles.push(testFile);
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      testFiles.push(...(await collectTestFiles(entryPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith(TEST_FILE_SUFFIX)) {
+      testFiles.push(entryPath);
+    }
   }
 
   return testFiles.sort();
 };
 
 const main = async (): Promise<void> => {
-  const nodeMajorVersion = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
-
-  if (nodeMajorVersion < MINIMUM_NODE_MAJOR) {
-    fail(new Error(`Node ${MINIMUM_NODE_MAJOR}+ is required to run db support tests.`));
-  }
-
-  const testFiles = await collectTestFiles();
+  const testFiles = await collectTestFiles(TEST_DIRECTORY);
 
   if (testFiles.length === 0) {
     console.error('No test files found.');
@@ -53,6 +61,8 @@ const main = async (): Promise<void> => {
   stream.on('test:fail', () => {
     process.exitCode = 1;
   });
+
+  stream.pipe(process.stdout);
 };
 
 void main().catch((error: unknown) => {
