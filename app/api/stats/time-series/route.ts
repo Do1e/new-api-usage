@@ -4,9 +4,15 @@ import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+import {
+  buildEqualityOrTextCastCondition,
+  createSqlContext,
+  getCacheTokensSql,
+  getInputTokensSql,
+  getLogsTableName,
+} from '@/lib/sql-dialect';
 
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
@@ -49,35 +55,31 @@ export async function GET(request: NextRequest) {
     }
     const startHour = endHour - 71 * 3600;
 
+    const dialect = getDatabaseDialect();
+    const sql = createSqlContext(dialect);
+    const logsTableName = getLogsTableName(dialect);
+    const cacheTokensSql = getCacheTokensSql(dialect, 'other');
+    const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
+
     const conditions: string[] = [
-      `created_at >= $1`,
-      `created_at < $2`,
+      `created_at >= ${sql.addParam(startHour)}`,
+      `created_at < ${sql.addParam(endHour + 3600)}`,
     ];
-    const params: (string | number)[] = [startHour, endHour + 3600];
-    let paramIndex = 3;
 
     if (user) {
-      conditions.push(`(username = $${paramIndex} OR user_id::text = $${paramIndex})`);
-      params.push(user);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'username', 'user_id', user));
     }
 
     if (model) {
-      conditions.push(`model_name = $${paramIndex}`);
-      params.push(model);
-      paramIndex++;
+      conditions.push(`model_name = ${sql.addParam(model)}`);
     }
 
     if (token) {
-      conditions.push(`token_name = $${paramIndex}`);
-      params.push(token);
-      paramIndex++;
+      conditions.push(`token_name = ${sql.addParam(token)}`);
     }
 
     if (channel) {
-      conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
-      params.push(channel);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'channel_name', 'channel_id', channel));
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
@@ -87,16 +89,16 @@ export async function GET(request: NextRequest) {
         COALESCE(username, 'Unknown') as username,
         (created_at / 3600) * 3600 as hour_bucket,
         COUNT(*) as calls,
-        COALESCE(SUM(${INPUT_TOKENS_SQL}), 0) as input_tokens,
+        COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${CACHE_TOKENS_SQL}), 0) as cache_tokens
-      FROM public.logs
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+      FROM ${logsTableName}
       ${whereClause}
       GROUP BY username, (created_at / 3600) * 3600
       ORDER BY hour_bucket, username
     `;
 
-    const result = await query(tsQuery, params);
+    const result = await query(tsQuery, sql.params);
 
     const hourBuckets: number[] = [];
     for (let i = 0; i < 72; i++) {
