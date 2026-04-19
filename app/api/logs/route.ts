@@ -140,8 +140,6 @@ export async function GET(request: NextRequest) {
 
     // Get paginated logs
     const offset = (page - 1) * limit;
-    const limitPlaceholder = sql.addParam(limit);
-    const offsetPlaceholder = sql.addParam(offset);
     const channelJoinSql = `${getTextCastSql(dialect, 'l.channel_id')} = ${getTextCastSql(dialect, 'c.id')}`;
     const logsQuery = `
       SELECT 
@@ -161,7 +159,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ${channelsTableName} c ON ${channelJoinSql}
       ${whereClause}
       ORDER BY l.created_at DESC
-      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
     const logsResult = await query(logsQuery, sql.params);
