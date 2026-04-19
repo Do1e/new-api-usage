@@ -40,6 +40,22 @@ describe('parseDatabaseUrl', () => {
     );
   });
 
+  it('defaults mysql:// URL ports to 3306 when omitted', () => {
+    assert.deepEqual(
+      parseDatabaseUrl('mysql://user:pass@localhost/app'),
+      {
+        connection: {
+          database: 'app',
+          host: 'localhost',
+          password: 'pass',
+          port: 3306,
+          user: 'user',
+        },
+        dialect: 'mysql',
+      },
+    );
+  });
+
   it('parses MySQL TCP DSNs as a mysql connection object', () => {
     assert.deepEqual(
       parseDatabaseUrl('user:password@tcp(localhost:3306)/app'),

@@ -43,6 +43,32 @@ const isRelativeSpecifier = (specifier) => specifier.startsWith('./') || specifi
 
 const isTsFile = (filePath) => ['.ts', '.tsx', '.mts', '.cts'].includes(extname(filePath));
 
+const getScriptKind = (filePath) => {
+  switch (extname(filePath)) {
+    case '.tsx':
+      return ts.ScriptKind.TSX;
+    case '.mts':
+      return ts.ScriptKind.External;
+    case '.cts':
+      return ts.ScriptKind.External;
+    default:
+      return ts.ScriptKind.TS;
+  }
+};
+
+const getTranspileCompilerOptions = (filePath) => {
+  const compilerOptions = {
+    module: ts.ModuleKind.ES2020,
+    target: ts.ScriptTarget.ES2020,
+  };
+
+  if (extname(filePath) === '.tsx') {
+    compilerOptions.jsx = ts.JsxEmit.ReactJSX;
+  }
+
+  return compilerOptions;
+};
+
 const findExistingModulePath = (basePath) => {
   const candidates = extname(basePath)
     ? [basePath]
@@ -106,7 +132,7 @@ const rewriteModuleSpecifiers = async (source, absoluteFilePath) => {
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    getScriptKind(absoluteFilePath),
   );
   const replacements = [];
 
@@ -169,10 +195,7 @@ const loadTsFile = async (filePath) => {
 
   const rewrittenSource = await rewriteModuleSpecifiers(source, absoluteFilePath);
   const transpiled = ts.transpileModule(rewrittenSource, {
-    compilerOptions: {
-      module: ts.ModuleKind.ES2020,
-      target: ts.ScriptTarget.ES2020,
-    },
+    compilerOptions: getTranspileCompilerOptions(absoluteFilePath),
     fileName: absoluteFilePath,
   });
 

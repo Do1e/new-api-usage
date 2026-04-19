@@ -31,9 +31,9 @@ const parseMySqlUrl = (databaseUrl: string): ParsedDatabaseUrl => {
   try {
     const url = new URL(databaseUrl);
     const database = url.pathname.slice(1);
-    const port = Number(url.port);
+    const port = url.port ? Number(url.port) : 3306;
 
-    if (!url.hostname || !url.username || !url.password || !url.port || !database) {
+    if (!url.hostname || !url.username || !url.password || !database) {
       return unsupportedDatabaseUrlFormat();
     }
 
