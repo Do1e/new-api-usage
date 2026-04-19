@@ -10,6 +10,7 @@ import {
   buildEqualityOrTextCastCondition,
   createSqlContext,
   getCacheTokensSql,
+  getHourBucketSql,
   getInputTokensSql,
   getLogsTableName,
 } from '@/lib/sql-dialect';
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
     const logsTableName = getLogsTableName(dialect);
     const cacheTokensSql = getCacheTokensSql(dialect, 'other');
     const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
+    const hourBucketSql = getHourBucketSql(dialect, 'created_at');
 
     const conditions: string[] = [
       `created_at >= ${sql.addParam(startHour)}`,
@@ -87,14 +89,14 @@ export async function GET(request: NextRequest) {
     const tsQuery = `
       SELECT
         COALESCE(username, 'Unknown') as username,
-        (created_at / 3600) * 3600 as hour_bucket,
+        ${hourBucketSql} as hour_bucket,
         COUNT(*) as calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
         COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
       FROM ${logsTableName}
       ${whereClause}
-      GROUP BY username, (created_at / 3600) * 3600
+      GROUP BY username, ${hourBucketSql}
       ORDER BY hour_bucket, username
     `;
 

@@ -60,6 +60,13 @@ export const getTextCastSql = (dialect: DatabaseDialect, column: string): string
   dialect === 'postgres' ? `${column}::text` : `CAST(${column} AS CHAR)`
 );
 
+export const getHourBucketSql = (dialect: DatabaseDialect, epochSecondsColumn: string): string => (
+  // Keep Postgres expression stable; MySQL uses DIV to avoid float math from '/'.
+  dialect === 'postgres'
+    ? `(${epochSecondsColumn} / 3600) * 3600`
+    : `(${epochSecondsColumn} DIV 3600) * 3600`
+);
+
 export const getCacheTokensSql = (dialect: DatabaseDialect, otherColumn: string): string => (
   dialect === 'postgres'
     ? `
