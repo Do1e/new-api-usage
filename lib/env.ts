@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
-const databaseUrlSchema = z.string().min(1, 'DATABASE_URL is required');
 const requiredStringSchema = (name: string) =>
-  z.string().min(1, `${name} is required`);
+  z.preprocess(
+    (value) => value ?? '',
+    z.string().min(1, `${name} is required`),
+  );
+const databaseUrlSchema = requiredStringSchema('DATABASE_URL');
 
 const cache = new Map<string, unknown>();
 
