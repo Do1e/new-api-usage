@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
@@ -18,11 +18,11 @@ import {
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
-  
+
   if (!token) {
     return false;
   }
-  
+
   try {
     await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     // Get model statistics
     const modelQuery = `
-      SELECT 
+      SELECT
         COALESCE(model_name, 'Unknown') as model,
         COUNT(*) as calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,

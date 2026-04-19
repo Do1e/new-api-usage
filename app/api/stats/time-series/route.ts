@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
@@ -157,6 +157,16 @@ export async function GET(request: NextRequest) {
         return point;
       });
 
+    const buildSeriesFromMaps = (maps: Map<string, number>[]) =>
+      hourBuckets.map((hour) => {
+        const point: Record<string, number | string> = { time: hour };
+        for (const name of usernames) {
+          const key = `${name}-${hour}`;
+          point[name] = maps.reduce((sum, m) => sum + (m.get(key) || 0), 0);
+        }
+        return point;
+      });
+
     return NextResponse.json({
       data: buildSeries(callsMap),
       users: usernames,
@@ -167,17 +177,6 @@ export async function GET(request: NextRequest) {
         cache: buildSeries(cacheTokensMap),
       },
     });
-
-    function buildSeriesFromMaps(maps: Map<string, number>[]) {
-      return hourBuckets.map((hour) => {
-        const point: Record<string, number | string> = { time: hour };
-        for (const name of usernames) {
-          const key = `${name}-${hour}`;
-          point[name] = maps.reduce((sum, m) => sum + (m.get(key) || 0), 0);
-        }
-        return point;
-      });
-    }
   } catch (error) {
     console.error('Time series API error:', error);
     return NextResponse.json(
