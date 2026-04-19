@@ -1,12 +1,19 @@
 import { cookies } from 'next/headers';
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+import {
+  buildEqualityOrTextCastCondition,
+  createSqlContext,
+  getCacheTokensSql,
+  getHourBucketSql,
+  getInputTokensSql,
+  getLogsTableName,
+} from '@/lib/sql-dialect';
 
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
@@ -35,49 +42,72 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const _startTime = searchParams.get('startTime');
+    const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
-    const endTs = endTime ? parseInt(endTime) : Math.floor(Date.now() / 1000);
+    let startTimeTs: number | null = null;
+    if (startTime) {
+      const parsedStartTime = parseInt(startTime, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 },
+        );
+      }
+      startTimeTs = parsedStartTime;
+    }
+
+    let endTimeTs: number | null = null;
+    if (endTime) {
+      const parsedEndTime = parseInt(endTime, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 },
+        );
+      }
+      endTimeTs = parsedEndTime;
+    }
+
+    const endTs = endTimeTs ?? Math.floor(Date.now() / 1000);
     let endHour = Math.floor(endTs / 3600) * 3600;
     if (endTs === endHour) {
       endHour -= 3600;
     }
     const startHour = endHour - 71 * 3600;
 
+    const dialect = getDatabaseDialect();
+    const sql = createSqlContext(dialect);
+    const logsTableName = getLogsTableName(dialect);
+    const cacheTokensSql = getCacheTokensSql(dialect, 'other');
+    const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
+    const hourBucketSql = getHourBucketSql(dialect, 'created_at');
+
+    const startBound = startTimeTs !== null ? Math.max(startHour, startTimeTs) : startHour;
+
     const conditions: string[] = [
-      `created_at >= $1`,
-      `created_at < $2`,
+      `created_at >= ${sql.addParam(startBound)}`,
+      `created_at < ${sql.addParam(endHour + 3600)}`,
     ];
-    const params: (string | number)[] = [startHour, endHour + 3600];
-    let paramIndex = 3;
 
     if (user) {
-      conditions.push(`(username = $${paramIndex} OR user_id::text = $${paramIndex})`);
-      params.push(user);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'username', 'user_id', user));
     }
 
     if (model) {
-      conditions.push(`model_name = $${paramIndex}`);
-      params.push(model);
-      paramIndex++;
+      conditions.push(`model_name = ${sql.addParam(model)}`);
     }
 
     if (token) {
-      conditions.push(`token_name = $${paramIndex}`);
-      params.push(token);
-      paramIndex++;
+      conditions.push(`token_name = ${sql.addParam(token)}`);
     }
 
     if (channel) {
-      conditions.push(`(channel_name = $${paramIndex} OR channel_id::text = $${paramIndex})`);
-      params.push(channel);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'channel_name', 'channel_id', channel));
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
@@ -85,18 +115,18 @@ export async function GET(request: NextRequest) {
     const tsQuery = `
       SELECT
         COALESCE(username, 'Unknown') as username,
-        (created_at / 3600) * 3600 as hour_bucket,
+        ${hourBucketSql} as hour_bucket,
         COUNT(*) as calls,
-        COALESCE(SUM(${INPUT_TOKENS_SQL}), 0) as input_tokens,
+        COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${CACHE_TOKENS_SQL}), 0) as cache_tokens
-      FROM public.logs
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+      FROM ${logsTableName}
       ${whereClause}
-      GROUP BY username, (created_at / 3600) * 3600
+      GROUP BY username, ${hourBucketSql}
       ORDER BY hour_bucket, username
     `;
 
-    const result = await query(tsQuery, params);
+    const result = await query(tsQuery, sql.params);
 
     const hourBuckets: number[] = [];
     for (let i = 0; i < 72; i++) {
@@ -127,6 +157,16 @@ export async function GET(request: NextRequest) {
         return point;
       });
 
+    const buildSeriesFromMaps = (maps: Map<string, number>[]) =>
+      hourBuckets.map((hour) => {
+        const point: Record<string, number | string> = { time: hour };
+        for (const name of usernames) {
+          const key = `${name}-${hour}`;
+          point[name] = maps.reduce((sum, m) => sum + (m.get(key) || 0), 0);
+        }
+        return point;
+      });
+
     return NextResponse.json({
       data: buildSeries(callsMap),
       users: usernames,
@@ -137,17 +177,6 @@ export async function GET(request: NextRequest) {
         cache: buildSeries(cacheTokensMap),
       },
     });
-
-    function buildSeriesFromMaps(maps: Map<string, number>[]) {
-      return hourBuckets.map((hour) => {
-        const point: Record<string, number | string> = { time: hour };
-        for (const name of usernames) {
-          const key = `${name}-${hour}`;
-          point[name] = maps.reduce((sum, m) => sum + (m.get(key) || 0), 0);
-        }
-        return point;
-      });
-    }
   } catch (error) {
     console.error('Time series API error:', error);
     return NextResponse.json(

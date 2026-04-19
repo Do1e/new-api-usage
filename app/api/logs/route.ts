@@ -1,22 +1,31 @@
 import { cookies } from 'next/headers';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-import { query } from '@/lib/db';
+import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
-import { CACHE_TOKENS_SQL, INPUT_TOKENS_SQL } from '@/lib/logs-sql';
+import {
+  buildEqualityOrTextCastCondition,
+  createSqlContext,
+  getCacheTokensSql,
+  getChannelsTableName,
+  getFirstTokenTimeSql,
+  getInputTokensSql,
+  getLogsTableName,
+  getTextCastSql,
+} from '@/lib/sql-dialect';
 
 // Verify authentication
 async function verifyAuth(_request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
-  
+
   if (!token) {
     return false;
   }
-  
+
   try {
     await jwtVerify(token, new TextEncoder().encode(getSessionSecret()));
     return true;
@@ -37,69 +46,101 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const startTime = searchParams.get('startTime');
-    const endTime = searchParams.get('endTime');
+    const pageRaw = searchParams.get('page') ?? '1';
+    const limitRaw = searchParams.get('limit') ?? '20';
+    const startTimeRaw = searchParams.get('startTime');
+    const endTimeRaw = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
-    // Build WHERE clause
-    const conditions: string[] = [];
-    const params: (string | number | null)[] = [];
-    let paramIndex = 1;
+    const page = parseInt(pageRaw, 10);
+    const limit = parseInt(limitRaw, 10);
+    let startTime: number | null = null;
+    let endTime: number | null = null;
 
-    if (startTime) {
-      conditions.push(`l.created_at >= $${paramIndex}`);
-      params.push(parseInt(startTime));
-      paramIndex++;
+    if (startTimeRaw) {
+      const parsedStartTime = parseInt(startTimeRaw, 10);
+      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid startTime' },
+          { status: 400 }
+        );
+      }
+      startTime = parsedStartTime;
     }
 
-    if (endTime) {
-      conditions.push(`l.created_at <= $${paramIndex}`);
-      params.push(parseInt(endTime));
-      paramIndex++;
+    if (endTimeRaw) {
+      const parsedEndTime = parseInt(endTimeRaw, 10);
+      if (!Number.isFinite(parsedEndTime) || parsedEndTime < 0) {
+        return NextResponse.json(
+          { error: 'Invalid endTime' },
+          { status: 400 }
+        );
+      }
+      endTime = parsedEndTime;
+    }
+
+    if (!Number.isFinite(page) || page <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid page' },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(limit) || limit <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid limit' },
+        { status: 400 }
+      );
+    }
+
+    const dialect = getDatabaseDialect();
+    const sql = createSqlContext(dialect);
+    const logsTableName = getLogsTableName(dialect);
+    const channelsTableName = getChannelsTableName(dialect);
+
+    // Build WHERE clause
+    const conditions: string[] = [];
+
+    if (startTime !== null) {
+      conditions.push(`l.created_at >= ${sql.addParam(startTime)}`);
+    }
+
+    if (endTime !== null) {
+      conditions.push(`l.created_at <= ${sql.addParam(endTime)}`);
     }
 
     if (user) {
-      conditions.push(`(l.username = $${paramIndex} OR l.user_id::text = $${paramIndex})`);
-      params.push(user);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'l.username', 'l.user_id', user));
     }
 
     if (model) {
-      conditions.push(`l.model_name = $${paramIndex}`);
-      params.push(model);
-      paramIndex++;
+      conditions.push(`l.model_name = ${sql.addParam(model)}`);
     }
 
     if (token) {
-      conditions.push(`l.token_name = $${paramIndex}`);
-      params.push(token);
-      paramIndex++;
+      conditions.push(`l.token_name = ${sql.addParam(token)}`);
     }
 
     if (channel) {
-      conditions.push(`(l.channel_name = $${paramIndex} OR l.channel_id::text = $${paramIndex})`);
-      params.push(channel);
-      paramIndex++;
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'l.channel_name', 'l.channel_id', channel));
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const aliasedCacheTokensSql = CACHE_TOKENS_SQL.replaceAll('other', 'l.other');
-    const aliasedInputTokensSql = INPUT_TOKENS_SQL
-      .replaceAll('other', 'l.other')
-      .replaceAll('prompt_tokens', 'l.prompt_tokens');
+    const cacheTokensSql = getCacheTokensSql(dialect, 'l.other');
+    const inputTokensSql = getInputTokensSql(dialect, 'l.prompt_tokens', 'l.other');
+    const firstTokenTimeSql = getFirstTokenTimeSql(dialect, 'l.other');
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM public.logs l ${whereClause}`;
-    const countResult = await query(countQuery, params);
-    const total = parseInt(countResult.rows[0].total);
+    const countQuery = `SELECT COUNT(*) as total FROM ${logsTableName} l ${whereClause}`;
+    const countResult = await query(countQuery, sql.params);
+    const total = parseInt(countResult.rows[0].total, 10);
 
     // Get paginated logs
     const offset = (page - 1) * limit;
+    const channelJoinSql = `${getTextCastSql(dialect, 'l.channel_id')} = ${getTextCastSql(dialect, 'c.id')}`;
     const logsQuery = `
       SELECT 
         l.id,
@@ -110,26 +151,18 @@ export async function GET(request: NextRequest) {
         COALESCE(l.channel_name, c.name) as channel_name,
         l.is_stream,
         l.use_time,
-        ${aliasedInputTokensSql} as input_tokens,
+        ${inputTokensSql} as input_tokens,
         l.completion_tokens as output_tokens,
-        ${aliasedCacheTokensSql} as cache_tokens,
-        CASE
-          WHEN l.other IS NOT NULL
-           AND l.other <> ''
-           AND l.other ~ '^\\s*\\{'
-          THEN COALESCE((l.other::json ->> 'frt')::bigint, 0)
-          ELSE 0
-        END as first_token_time
-      FROM public.logs l
-      LEFT JOIN public.channels c ON l.channel_id::integer = c.id
+        ${cacheTokensSql} as cache_tokens,
+        ${firstTokenTimeSql} as first_token_time
+      FROM ${logsTableName} l
+      LEFT JOIN ${channelsTableName} c ON ${channelJoinSql}
       ${whereClause}
       ORDER BY l.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    
-    params.push(limit, offset);
 
-    const logsResult = await query(logsQuery, params);
+    const logsResult = await query(logsQuery, sql.params);
 
     const logs = logsResult.rows.map((row: { 
       id: number; 

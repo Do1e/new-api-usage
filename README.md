@@ -2,7 +2,7 @@
 
 一个专为 [new-api](https://github.com/QuantumNous/new-api) 打造的轻量级可视化仪表板。
 
-直接读取 PostgreSQL 中的 `logs` 表，将原始的调用记录转化为直观的图表和统计数据，帮助你更好地理解 API 的使用状况、Token 消耗分布以及流量趋势。
+直接读取 new-api 数据库中的 `logs` 表，将原始的调用记录转化为直观的图表和统计数据，帮助你更好地理解 API 的使用状况、Token 消耗分布以及流量趋势。
 
 ---
 
@@ -20,7 +20,7 @@
 *   **框架**：Next.js 16 (App Router) + React 19 + TypeScript
 *   **UI**：shadcn/ui + Tailwind CSS v4 + Lucide Icons
 *   **图表**：Recharts
-*   **数据**：PostgreSQL (pg) + jose (JWT)
+*   **数据**：PostgreSQL / MySQL + jose (JWT)
 
 ---
 
@@ -42,7 +42,7 @@ docker run -d \
   do1e/new-api-usage:latest
 ```
 
-*   `DATABASE_URL`: 指向你的 new-api 数据库。
+*   `DATABASE_URL`: 指向你的 new-api 数据库，支持 PostgreSQL URL，也支持 MySQL 连接串；程序会在运行时自动识别。
 *   `DASHBOARD_PASSWORD`: 仪表板的登录密码。
 *   `SESSION_SECRET`: 用于 JWT 签名的随机字符串（可以使用 `openssl rand -base64 32` 生成）。
 
@@ -75,7 +75,7 @@ docker compose up -d
     cd new-api-usage
     ```
 3.  **安装依赖**：`pnpm install`
-4.  **配置文件**：复制 `.env.example` 为 `.env` 并填写数据库及密码信息。
+4.  **配置文件**：复制 `.env.example` 为 `.env` 并填写数据库及密码信息。`DATABASE_URL` 支持 PostgreSQL 和 MySQL。
 5.  **启动开发环境**：`pnpm dev`
 
 ---
