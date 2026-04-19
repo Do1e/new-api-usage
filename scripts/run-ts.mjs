@@ -21,17 +21,8 @@ if (!inputPath) {
   fail('Missing TypeScript entry file.');
 }
 
-const absoluteInputPath = resolve(process.cwd(), inputPath);
-const source = readFileSync(absoluteInputPath, 'utf8');
-const transpiled = ts.transpileModule(source, {
-  compilerOptions: {
-    module: ts.ModuleKind.ES2020,
-    target: ts.ScriptTarget.ES2020,
-  },
-  fileName: absoluteInputPath,
-});
 const tempDirectory = mkdtempSync(join(tmpdir(), 'db-support-runner-'));
-const tempFilePath = join(tempDirectory, `${basename(absoluteInputPath, '.ts')}.mjs`);
+const loadedFiles = new Map();
 
 const cleanup = () => {
   rmSync(tempDirectory, { force: true, recursive: true });
@@ -47,9 +38,36 @@ process.once('SIGTERM', () => {
   process.exit(143);
 });
 
+globalThis.__loadTsFile = async (filePath) => {
+  const absoluteFilePath = resolve(process.cwd(), filePath);
+  const existingFileUrl = loadedFiles.get(absoluteFilePath);
+
+  if (existingFileUrl) {
+    return import(existingFileUrl);
+  }
+
+  const source = readFileSync(absoluteFilePath, 'utf8');
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2020,
+      target: ts.ScriptTarget.ES2020,
+    },
+    fileName: absoluteFilePath,
+  });
+  const outputFilePath = join(
+    tempDirectory,
+    `${loadedFiles.size}-${basename(absoluteFilePath, '.ts')}.mjs`,
+  );
+  const outputFileUrl = pathToFileURL(outputFilePath).href;
+
+  writeFileSync(outputFilePath, transpiled.outputText);
+  loadedFiles.set(absoluteFilePath, outputFileUrl);
+
+  return import(outputFileUrl);
+};
+
 try {
-  writeFileSync(tempFilePath, transpiled.outputText);
-  await import(pathToFileURL(tempFilePath).href);
+  await globalThis.__loadTsFile(inputPath);
 } catch (error) {
   fail('Failed to launch TypeScript test runner.', error);
 }

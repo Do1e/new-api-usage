@@ -1,9 +1,10 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import * as nodeTest from 'node:test';
+import { join, resolve } from 'node:path';
 
 const TEST_DIRECTORY = 'tests';
 const TEST_FILE_SUFFIX = '.test.ts';
+
+type LoadTsFile = (filePath: string) => Promise<unknown>;
 
 const fail = (error: unknown): never => {
   if (error instanceof Error) {
@@ -42,9 +43,23 @@ const collectTestFiles = async (directory: string): Promise<string[]> => {
 };
 
 const main = async (): Promise<void> => {
-  if (typeof nodeTest.run !== 'function') {
-    fail(new Error('This test runner requires a Node.js release with node:test run() support.'));
+  try {
+    const nodeTest = await import('node:test');
+
+    if (typeof nodeTest.test !== 'function') {
+      fail(new Error('This test runner requires a Node.js release with node:test support.'));
+    }
+  } catch (_error) {
+    fail(new Error('This test runner requires a Node.js release with node:test support.'));
   }
+
+  const maybeLoadTsFile = (globalThis as { __loadTsFile?: LoadTsFile }).__loadTsFile;
+
+  if (typeof maybeLoadTsFile !== 'function') {
+    fail(new Error('TypeScript test loader is not available.'));
+  }
+
+  const loadTsFile = maybeLoadTsFile as LoadTsFile;
 
   const testFiles = await collectTestFiles(TEST_DIRECTORY);
 
@@ -53,20 +68,9 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  const stream = nodeTest.run({
-    concurrency: false,
-    files: testFiles,
-  });
-
-  stream.on('error', (error) => {
-    fail(error);
-  });
-
-  stream.on('test:fail', () => {
-    process.exitCode = 1;
-  });
-
-  stream.pipe(process.stdout);
+  for (const testFile of testFiles) {
+    await loadTsFile(resolve(process.cwd(), testFile));
+  }
 };
 
 void main().catch((error: unknown) => {
