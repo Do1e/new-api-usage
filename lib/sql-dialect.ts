@@ -2,17 +2,26 @@ import type { DatabaseDialect } from '@/lib/database-url';
 
 export type QueryParam = boolean | null | number | string;
 
-type SqlContext = {
+export type SqlContext = {
   addParam: (value: QueryParam) => string;
   params: QueryParam[];
 };
 
 export const buildEqualityOrTextCastCondition = (
   dialect: DatabaseDialect,
+  sql: Pick<SqlContext, 'addParam'>,
   column: string,
   castColumn: string,
-  placeholder: string,
-): string => `(${column} = ${placeholder} OR ${getTextCastSql(dialect, castColumn)} = ${placeholder})`;
+  value: QueryParam,
+): string => {
+  // Postgres can reuse the same $n placeholder; MySQL needs a value per '?' placeholder.
+  if (dialect === 'postgres') {
+    const placeholder = sql.addParam(value);
+    return `(${column} = ${placeholder} OR ${getTextCastSql(dialect, castColumn)} = ${placeholder})`;
+  }
+
+  return `(${column} = ${sql.addParam(value)} OR ${getTextCastSql(dialect, castColumn)} = ${sql.addParam(value)})`;
+};
 
 const getJsonObjectGuardSql = (dialect: DatabaseDialect, otherColumn: string) => (
   dialect === 'postgres'

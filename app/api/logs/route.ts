@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
     const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
@@ -72,8 +72,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (user) {
-      const placeholder = sql.addParam(user);
-      conditions.push(buildEqualityOrTextCastCondition(dialect, 'l.username', 'l.user_id', placeholder));
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'l.username', 'l.user_id', user));
     }
 
     if (model) {
@@ -85,8 +84,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (channel) {
-      const placeholder = sql.addParam(channel);
-      conditions.push(buildEqualityOrTextCastCondition(dialect, 'l.channel_name', 'l.channel_id', placeholder));
+      conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'l.channel_name', 'l.channel_id', channel));
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
