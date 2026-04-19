@@ -1,18 +1,6 @@
 import { z } from 'zod';
 
-import { parseDatabaseUrl } from '@/lib/database-url';
-
-const databaseUrlSchema = z.string().min(1, 'DATABASE_URL is required').refine(
-  (databaseUrl) => {
-    try {
-      parseDatabaseUrl(databaseUrl);
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  },
-  { message: 'Unsupported DATABASE_URL format' },
-);
+const databaseUrlSchema = z.string().min(1, 'DATABASE_URL is required');
 const requiredStringSchema = (name: string) =>
   z.string().min(1, `${name} is required`);
 
