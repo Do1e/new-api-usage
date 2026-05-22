@@ -38,6 +38,7 @@ docker run -d \
   -e DATABASE_URL="postgres://username:password@host:5432/database_name" \
   -e DASHBOARD_PASSWORD="your_password" \
   -e SESSION_SECRET="your_random_secret" \
+  -e DEFAULT_RECENT_DAYS=7 \
   -e TZ="Asia/Shanghai" \
   do1e/new-api-usage:latest
 ```
@@ -45,6 +46,7 @@ docker run -d \
 *   `DATABASE_URL`: 指向你的 new-api 数据库，支持 PostgreSQL URL，也支持 MySQL 连接串；程序会在运行时自动识别。
 *   `DASHBOARD_PASSWORD`: 仪表板的登录密码。
 *   `SESSION_SECRET`: 用于 JWT 签名的随机字符串（可以使用 `openssl rand -base64 32` 生成）。
+*   `DEFAULT_RECENT_DAYS`: 仪表板默认展示的最近 N 天数据（0 表示展示所有数据）。
 
 ### Docker Compose
 

@@ -33,9 +33,9 @@ export function getSessionSecret() {
 const defaultRecentDaysSchema = z.preprocess(
   (value) => {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : 7;
   },
-  z.number().int().min(0).default(0),
+  z.number().int().min(0).default(7),
 );
 
 export function getDefaultRecentDays() {

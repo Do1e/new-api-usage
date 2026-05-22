@@ -72,6 +72,7 @@ services:
       - DATABASE_URL=postgresql://root:edit-me@postgres-new-api:5432/new-api
       - DASHBOARD_PASSWORD=edit-me
       - SESSION_SECRET=edit-me
+      - DEFAULT_RECENT_DAYS=7
     networks:
       - new-api
     depends_on:
