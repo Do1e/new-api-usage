@@ -52,6 +52,7 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
         if (filters.model) params.append('model', filters.model);
         if (filters.token) params.append('token', filters.token);
 
+        params.append('_refresh', refreshKey.toString());
         const response = await fetch(`/api/stats/time-series?${params}`);
         if (response.ok) {
           const result = await response.json();
