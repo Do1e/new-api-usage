@@ -29,3 +29,15 @@ export function getDashboardPassword() {
 export function getSessionSecret() {
   return readEnv('SESSION_SECRET', requiredStringSchema('SESSION_SECRET'));
 }
+
+const defaultRecentDaysSchema = z.preprocess(
+  (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  },
+  z.number().int().min(0).default(0),
+);
+
+export function getDefaultRecentDays() {
+  return readEnv('DEFAULT_RECENT_DAYS', defaultRecentDaysSchema);
+}
