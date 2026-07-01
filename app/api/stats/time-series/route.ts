@@ -42,24 +42,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
     const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
-
-    let startTimeTs: number | null = null;
-    if (startTime) {
-      const parsedStartTime = parseInt(startTime, 10);
-      if (!Number.isFinite(parsedStartTime) || parsedStartTime < 0) {
-        return NextResponse.json(
-          { error: 'Invalid startTime' },
-          { status: 400 },
-        );
-      }
-      startTimeTs = parsedStartTime;
-    }
 
     let endTimeTs: number | null = null;
     if (endTime) {
@@ -87,10 +74,8 @@ export async function GET(request: NextRequest) {
     const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
     const hourBucketSql = getHourBucketSql(dialect, 'created_at');
 
-    const startBound = startTimeTs !== null ? Math.max(startHour, startTimeTs) : startHour;
-
     const conditions: string[] = [
-      `created_at >= ${sql.addParam(startBound)}`,
+      `created_at >= ${sql.addParam(startHour)}`,
       `created_at < ${sql.addParam(endHour + 3600)}`,
     ];
 

@@ -46,7 +46,6 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        if (filters.startTime) params.append('startTime', filters.startTime.toString());
         if (filters.endTime) params.append('endTime', filters.endTime.toString());
         if (filters.user) params.append('user', filters.user);
         if (filters.model) params.append('model', filters.model);
