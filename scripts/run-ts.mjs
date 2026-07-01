@@ -1,5 +1,4 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -21,9 +20,9 @@ if (!inputPath) {
   fail('Missing TypeScript entry file.');
 }
 
-const tempDirectory = mkdtempSync(join(tmpdir(), 'db-support-runner-'));
 const loadedFiles = new Map();
 const projectRoot = process.cwd();
+const tempDirectory = mkdtempSync(join(projectRoot, '.db-support-runner-'));
 
 const cleanup = () => {
   rmSync(tempDirectory, { force: true, recursive: true });

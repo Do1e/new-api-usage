@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCompactNumber } from '@/lib/chart';
+import { formatCompactNumber, formatCurrencyAmount } from '@/lib/chart';
 
 
 interface FilterState {
@@ -37,6 +37,7 @@ interface LogEntry {
   channel: string;
   isStream: boolean;
   useTime: number;
+  cost: number;
   inputTokens: number;
   outputTokens: number;
   cacheTokens: number;
@@ -57,6 +58,7 @@ interface LogsTableProps {
 
 export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [currencySymbol, setCurrencySymbol] = useState('$');
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
@@ -85,6 +87,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
         if (response.ok) {
           const result = await response.json();
           setLogs(result.logs);
+          setCurrencySymbol(result.currencySymbol || '$');
           setPagination(result.pagination);
         }
       } catch (error) {
@@ -142,6 +145,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                     <TableHead>模型</TableHead>
                     <TableHead>渠道</TableHead>
                     <TableHead>令牌</TableHead>
+                    <TableHead className="text-right">费用</TableHead>
                     <TableHead className="text-right">用时</TableHead>
                     <TableHead className="text-right">首字</TableHead>
                     <TableHead className="text-right">输入</TableHead>
@@ -152,7 +156,7 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                 <TableBody>
                   {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={11} className="py-8 text-center text-muted-foreground">
                         暂无日志
                       </TableCell>
                     </TableRow>
@@ -174,6 +178,9 @@ export const LogsTable = ({ filters, refreshKey }: LogsTableProps) => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{log.tokenName || '-'}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrencyAmount(log.cost, currencySymbol)}
+                        </TableCell>
                         <TableCell className="text-right font-mono">
                           {log.useTime}s
                         </TableCell>

@@ -39,6 +39,8 @@ docker run -d \
   -e DASHBOARD_PASSWORD="your_password" \
   -e SESSION_SECRET="your_random_secret" \
   -e DEFAULT_RECENT_DAYS=7 \
+  -e COST_CURRENCY_SYMBOL="¥" \
+  -e COST_EXCHANGE_RATE="1:7" \
   -e TZ="Asia/Shanghai" \
   do1e/new-api-usage:latest
 ```
@@ -47,6 +49,8 @@ docker run -d \
 *   `DASHBOARD_PASSWORD`: 仪表板的登录密码。
 *   `SESSION_SECRET`: 用于 JWT 签名的随机字符串（可以使用 `openssl rand -base64 32` 生成）。
 *   `DEFAULT_RECENT_DAYS`: 仪表板默认展示的最近 N 天数据（0 表示展示所有数据）。
+*   `COST_CURRENCY_SYMBOL`: 费用展示的货币符号，默认 `$`，人民币可设置为 `¥`。
+*   `COST_EXCHANGE_RATE`: 费用换算倍率，默认 `1:1`，人民币示例为 `1:7`。
 
 ### Docker Compose
 

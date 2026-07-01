@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 
 import { format } from 'date-fns';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Archive, ArrowDownToLine, ArrowUpFromLine, Database, DollarSign, Loader2, MousePointerClick, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CHART_COLORS, formatCompactNumber } from '@/lib/chart';
+import { CHART_COLORS, formatCompactNumber, formatCurrencyAmount } from '@/lib/chart';
 
 interface FilterState {
   startTime: number | null;
@@ -23,23 +23,24 @@ interface CallCountChartProps {
   refreshKey: number;
 }
 
-type MetricKey = 'calls' | 'total' | 'input' | 'output' | 'cache';
-
-const METRIC_LABELS: Record<MetricKey, string> = {
-  calls: '调用次数',
-  total: '总 Token',
-  input: '输入 Token',
-  cache: '缓存 Token',
-  output: '输出 Token',
+const METRIC_CONFIG = {
+  cost: { label: '费用', icon: <DollarSign className="h-4 w-4" /> },
+  calls: { label: '调用次数', icon: <MousePointerClick className="h-4 w-4" /> },
+  total: { label: '总 Token', icon: <Database className="h-4 w-4" /> },
+  input: { label: '输入 Token', icon: <ArrowDownToLine className="h-4 w-4" /> },
+  cache: { label: '缓存 Token', icon: <Archive className="h-4 w-4" /> },
+  output: { label: '输出 Token', icon: <ArrowUpFromLine className="h-4 w-4" /> },
 };
 
+type MetricKey = keyof typeof METRIC_CONFIG;
 
 export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => {
   const [callsData, setCallsData] = useState<Record<string, number | string>[]>([]);
   const [tokensData, setTokensData] = useState<Record<string, Record<string, number | string>[]>>({});
   const [users, setUsers] = useState<string[]>([]);
+  const [currencySymbol, setCurrencySymbol] = useState('$');
   const [loading, setLoading] = useState(true);
-  const [metric, setMetric] = useState<MetricKey>('calls');
+  const [metric, setMetric] = useState<MetricKey>('cost');
 
   useEffect(() => {
     const fetchTimeSeries = async () => {
@@ -57,7 +58,8 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
           const result = await response.json();
           setCallsData(result.data);
           setUsers(result.users);
-          setTokensData(result.tokens || {});
+          setTokensData({ ...(result.tokens || {}), cost: result.cost || [] });
+          setCurrencySymbol(result.currencySymbol || '$');
         }
       } catch (error) {
         console.error('Failed to fetch time series:', error);
@@ -81,14 +83,17 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          {METRIC_LABELS[metric]}趋势（每小时）
+          {METRIC_CONFIG[metric].label}趋势（每小时）
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs value={metric} onValueChange={(v) => setMetric(v as MetricKey)}>
-          <TabsList className="mb-4">
-            {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
-              <TabsTrigger key={key} value={key}>{METRIC_LABELS[key]}</TabsTrigger>
+          <TabsList className="mb-4 grid h-auto w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((key) => (
+              <TabsTrigger key={key} value={key}>
+                {METRIC_CONFIG[key].icon}
+                {METRIC_CONFIG[key].label}
+              </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
@@ -114,8 +119,10 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
               />
               <YAxis
                 tick={{ fontSize: 12 }}
-                allowDecimals={false}
-                tickFormatter={(value) => formatCompactNumber(value)}
+                allowDecimals={metric === 'cost'}
+                tickFormatter={(value) => (
+                  metric === 'cost' ? formatCurrencyAmount(Number(value), currencySymbol) : formatCompactNumber(value)
+                )}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
@@ -128,11 +135,13 @@ export const CallCountChart = ({ filters, refreshKey }: CallCountChartProps) => 
                 }}
                 labelFormatter={(label) => format(new Date(Number(label) * 1000), 'yyyy-MM-dd HH:mm')}
                 formatter={(value) => {
-                  if (typeof value !== 'number') {
+                  const numberValue = typeof value === 'number' ? value : Number(value);
+
+                  if (!Number.isFinite(numberValue)) {
                     return value;
                   }
 
-                  return formatCompactNumber(value);
+                  return metric === 'cost' ? formatCurrencyAmount(numberValue, currencySymbol) : formatCompactNumber(numberValue);
                 }}
               />
               <Legend />

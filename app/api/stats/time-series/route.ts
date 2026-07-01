@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
+import { getCostDisplayConfig, quotaToCost } from '@/lib/cost';
 import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
 import {
@@ -104,7 +105,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) as calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens,
+        COALESCE(SUM(quota), 0) as quota
       FROM ${logsTableName}
       ${whereClause}
       GROUP BY username, ${hourBucketSql}
@@ -112,6 +114,7 @@ export async function GET(request: NextRequest) {
     `;
 
     const result = await query(tsQuery, sql.params);
+    const costConfig = getCostDisplayConfig();
 
     const hourBuckets: number[] = [];
     for (let i = 0; i < 72; i++) {
@@ -120,17 +123,19 @@ export async function GET(request: NextRequest) {
 
     const usernames = [...new Set(result.rows.map((r: { username: string }) => r.username))];
 
-    type MetricRow = { username: string; hour_bucket: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string };
+    type MetricRow = { username: string; hour_bucket: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string; quota: string };
     const callsMap = new Map<string, number>();
     const inputTokensMap = new Map<string, number>();
     const outputTokensMap = new Map<string, number>();
     const cacheTokensMap = new Map<string, number>();
+    const quotaMap = new Map<string, number>();
     for (const row of result.rows as MetricRow[]) {
       const key = `${row.username}-${row.hour_bucket}`;
       callsMap.set(key, parseInt(row.calls));
       inputTokensMap.set(key, parseInt(row.input_tokens));
       outputTokensMap.set(key, parseInt(row.output_tokens));
       cacheTokensMap.set(key, parseInt(row.cache_tokens));
+      quotaMap.set(key, Number(row.quota || 0));
     }
 
     const buildSeries = (metricMap: Map<string, number>) =>
@@ -152,6 +157,15 @@ export async function GET(request: NextRequest) {
         return point;
       });
 
+    const buildCostSeries = (metricMap: Map<string, number>) =>
+      hourBuckets.map((hour) => {
+        const point: Record<string, number | string> = { time: hour };
+        for (const name of usernames) {
+          point[name] = quotaToCost(metricMap.get(`${name}-${hour}`) || 0, costConfig.exchangeRate);
+        }
+        return point;
+      });
+
     return NextResponse.json({
       data: buildSeries(callsMap),
       users: usernames,
@@ -161,6 +175,8 @@ export async function GET(request: NextRequest) {
         output: buildSeries(outputTokensMap),
         cache: buildSeries(cacheTokensMap),
       },
+      cost: buildCostSeries(quotaMap),
+      currencySymbol: costConfig.currencySymbol,
     });
   } catch (error) {
     console.error('Time series API error:', error);

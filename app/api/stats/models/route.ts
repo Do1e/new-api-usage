@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
+import { getCostDisplayConfig, quotaToCost } from '@/lib/cost';
 import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
 import {
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
     const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
     const user = searchParams.get('user');
+    const model = searchParams.get('model');
     const token = searchParams.get('token');
     const channel = searchParams.get('channel');
 
@@ -95,6 +97,10 @@ export async function GET(request: NextRequest) {
       conditions.push(buildEqualityOrTextCastCondition(dialect, sql, 'username', 'user_id', user));
     }
 
+    if (model) {
+      conditions.push(`model_name = ${sql.addParam(model)}`);
+    }
+
     if (token) {
       conditions.push(`token_name = ${sql.addParam(token)}`);
     }
@@ -112,7 +118,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) as calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens,
+        COALESCE(SUM(quota), 0) as quota
       FROM ${logsTableName}
       ${whereClause}
       GROUP BY model_name
@@ -120,17 +127,23 @@ export async function GET(request: NextRequest) {
     `;
 
     const result = await query(modelQuery, sql.params);
+    const costConfig = getCostDisplayConfig();
 
-    const data = result.rows.map((row: { model: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string }) => ({
-      model: row.model,
-      calls: parseInt(row.calls),
-      inputTokens: parseInt(row.input_tokens),
-      outputTokens: parseInt(row.output_tokens),
-      cacheTokens: parseInt(row.cache_tokens),
-      totalTokens: parseInt(row.input_tokens) + parseInt(row.output_tokens),
-    }));
+    const data = result.rows.map((row: { model: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string; quota: string }) => {
+      const quota = Number(row.quota || 0);
 
-    return NextResponse.json({ data });
+      return {
+        model: row.model,
+        calls: parseInt(row.calls),
+        inputTokens: parseInt(row.input_tokens),
+        outputTokens: parseInt(row.output_tokens),
+        cacheTokens: parseInt(row.cache_tokens),
+        totalTokens: parseInt(row.input_tokens) + parseInt(row.output_tokens),
+        cost: quotaToCost(quota, costConfig.exchangeRate),
+      };
+    });
+
+    return NextResponse.json({ data, currencySymbol: costConfig.currencySymbol });
 
   } catch (error) {
     console.error('Model stats API error:', error);

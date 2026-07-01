@@ -55,7 +55,7 @@ export const PieTooltipContent = ({
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
       <div>{String(item.name || '-')}</div>
-      <div>{`${formatValue(value)} ${unit}`}</div>
+      <div>{unit ? `${formatValue(value)} ${unit}` : formatValue(value)}</div>
       <div>{`${percent}%`}</div>
     </div>
   );

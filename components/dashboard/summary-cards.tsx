@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-import { Loader2, MousePointerClick, ArrowDownToLine, ArrowUpFromLine, Archive, Database } from 'lucide-react';
+import { Loader2, MousePointerClick, ArrowDownToLine, ArrowUpFromLine, Archive, Database, DollarSign } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatCompactNumber } from '@/lib/chart';
+import { formatCompactNumber, formatCurrencyAmount } from '@/lib/chart';
 
 interface FilterState {
   startTime: number | null;
@@ -17,6 +17,8 @@ interface FilterState {
 
 interface SummaryStats {
   totalCalls: number;
+  totalCost: number;
+  currencySymbol: string;
   inputTokens: number;
   outputTokens: number;
   cacheTokens: number;
@@ -60,6 +62,14 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
 
   const cards = [
     {
+      title: '总费用',
+      value: stats?.totalCost || 0,
+      icon: DollarSign,
+      color: 'text-emerald-500',
+      bgColor: 'bg-emerald-500/10',
+      currency: true,
+    },
+    {
       title: '调用次数',
       value: stats?.totalCalls || 0,
       icon: MousePointerClick,
@@ -97,7 +107,7 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {cards.map((card) => (
         <Card key={card.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -111,7 +121,7 @@ export const SummaryCards = ({ filters, refreshKey }: SummaryCardsProps) => {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatCompactNumber(card.value, { precision: 3 })}
+                {card.currency ? formatCurrencyAmount(card.value, stats?.currencySymbol || '$') : formatCompactNumber(card.value, { precision: 3 })}
               </div>
             )}
           </CardContent>

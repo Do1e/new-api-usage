@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
+import { getCostDisplayConfig, quotaToCost } from '@/lib/cost';
 import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
 import {
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
         COALESCE(l.channel_name, c.name) as channel_name,
         l.is_stream,
         l.use_time,
+        l.quota,
         ${inputTokensSql} as input_tokens,
         l.completion_tokens as output_tokens,
         ${cacheTokensSql} as cache_tokens,
@@ -163,6 +165,7 @@ export async function GET(request: NextRequest) {
     `;
 
     const logsResult = await query(logsQuery, sql.params);
+    const costConfig = getCostDisplayConfig();
 
     const logs = logsResult.rows.map((row: { 
       id: number; 
@@ -173,6 +176,7 @@ export async function GET(request: NextRequest) {
       channel_name: string; 
       is_stream: boolean;
       use_time: number; 
+      quota: number | string;
       input_tokens: number; 
       output_tokens: number; 
       cache_tokens: number; 
@@ -187,6 +191,7 @@ export async function GET(request: NextRequest) {
       channel: row.channel_name || 'Unknown',
       isStream: row.is_stream,
       useTime: row.use_time || 0,
+      cost: quotaToCost(Number(row.quota || 0), costConfig.exchangeRate),
       inputTokens: row.input_tokens || 0,
       outputTokens: row.output_tokens || 0,
       cacheTokens: row.cache_tokens || 0,
@@ -195,6 +200,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       logs,
+      currencySymbol: costConfig.currencySymbol,
       pagination: {
         page,
         limit,

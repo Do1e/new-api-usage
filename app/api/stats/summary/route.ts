@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
+import { getCostDisplayConfig, quotaToCost } from '@/lib/cost';
 import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
 import {
@@ -117,7 +118,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) as total_calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens,
+        COALESCE(SUM(quota), 0) as quota
       FROM ${logsTableName}
       ${whereClause}
     `;
@@ -130,9 +132,12 @@ export async function GET(request: NextRequest) {
     const outputTokens = parseInt(stats.output_tokens);
     const cacheTokens = parseInt(stats.cache_tokens);
     const totalTokens = inputTokens + outputTokens;
+    const costConfig = getCostDisplayConfig();
 
     return NextResponse.json({
       totalCalls: parseInt(stats.total_calls),
+      totalCost: quotaToCost(Number(stats.quota || 0), costConfig.exchangeRate),
+      currencySymbol: costConfig.currencySymbol,
       inputTokens,
       outputTokens,
       cacheTokens,

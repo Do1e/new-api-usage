@@ -6,6 +6,20 @@ const requiredStringSchema = (name: string) =>
     z.string().min(1, `${name} is required`),
   );
 const databaseUrlSchema = requiredStringSchema('DATABASE_URL');
+const costCurrencySymbolSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : '$'),
+  z.string().min(1),
+);
+const costExchangeRateSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : '1:1'),
+  z.string().trim().refine((value) => {
+    const [baseRaw, targetRaw, extra] = value.split(':');
+    const base = Number(baseRaw);
+    const target = Number(targetRaw);
+
+    return extra === undefined && Number.isFinite(base) && base > 0 && Number.isFinite(target) && target >= 0;
+  }, { message: 'COST_EXCHANGE_RATE must use ratio like 1:7' }),
+);
 
 const cache = new Map<string, unknown>();
 
@@ -28,6 +42,14 @@ export function getDashboardPassword() {
 
 export function getSessionSecret() {
   return readEnv('SESSION_SECRET', requiredStringSchema('SESSION_SECRET'));
+}
+
+export function getCostCurrencySymbol() {
+  return readEnv('COST_CURRENCY_SYMBOL', costCurrencySymbolSchema);
+}
+
+export function getCostExchangeRate() {
+  return readEnv('COST_EXCHANGE_RATE', costExchangeRateSchema);
 }
 
 const defaultRecentDaysSchema = z.preprocess(

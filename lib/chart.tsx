@@ -35,3 +35,7 @@ export const formatCompactNumber = (
 
   return value.toString();
 };
+
+export const formatCurrencyAmount = (value: number, currencySymbol: string) => {
+  return `${currencySymbol}${value.toLocaleString('zh-CN', { maximumFractionDigits: 5 })}`;
+};

@@ -11,7 +11,6 @@ import { Filters } from '@/components/dashboard/filters';
 import { LogsTable } from '@/components/dashboard/logs-table';
 import { ModelPieCharts } from '@/components/dashboard/model-pie-charts';
 import { SummaryCards } from '@/components/dashboard/summary-cards';
-import { TokenPieChart } from '@/components/dashboard/token-pie-chart';
 import { UserPieCharts } from '@/components/dashboard/user-pie-charts';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -117,16 +116,10 @@ const DashboardClient = ({ defaultRecentDays }: DashboardClientProps) => {
         <SummaryCards filters={filters} refreshKey={refreshKey} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TokenPieChart filters={filters} refreshKey={refreshKey} />
+          <ModelPieCharts filters={filters} refreshKey={refreshKey} />
 
           <UserPieCharts filters={filters} refreshKey={refreshKey} />
         </div>
-
-        {!filters.model && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ModelPieCharts filters={filters} refreshKey={refreshKey} />
-          </div>
-        )}
 
         <CallCountChart filters={filters} refreshKey={refreshKey} />
 

@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
+import { getCostDisplayConfig, quotaToCost } from '@/lib/cost';
 import { getDatabaseDialect, query } from '@/lib/db';
 import { getSessionSecret } from '@/lib/env';
 import {
@@ -117,7 +118,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) as calls,
         COALESCE(SUM(${inputTokensSql}), 0) as input_tokens,
         COALESCE(SUM(completion_tokens), 0) as output_tokens,
-        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens
+        COALESCE(SUM(${cacheTokensSql}), 0) as cache_tokens,
+        COALESCE(SUM(quota), 0) as quota
       FROM ${logsTableName}
       ${whereClause}
       GROUP BY username
@@ -125,17 +127,23 @@ export async function GET(request: NextRequest) {
     `;
 
     const result = await query(userQuery, sql.params);
+    const costConfig = getCostDisplayConfig();
 
-    const data = result.rows.map((row: { username: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string }) => ({
-      username: row.username,
-      calls: parseInt(row.calls),
-      inputTokens: parseInt(row.input_tokens),
-      outputTokens: parseInt(row.output_tokens),
-      cacheTokens: parseInt(row.cache_tokens),
-      totalTokens: parseInt(row.input_tokens) + parseInt(row.output_tokens),
-    }));
+    const data = result.rows.map((row: { username: string; calls: string; input_tokens: string; output_tokens: string; cache_tokens: string; quota: string }) => {
+      const quota = Number(row.quota || 0);
 
-    return NextResponse.json({ data });
+      return {
+        username: row.username,
+        calls: parseInt(row.calls),
+        inputTokens: parseInt(row.input_tokens),
+        outputTokens: parseInt(row.output_tokens),
+        cacheTokens: parseInt(row.cache_tokens),
+        totalTokens: parseInt(row.input_tokens) + parseInt(row.output_tokens),
+        cost: quotaToCost(quota, costConfig.exchangeRate),
+      };
+    });
+
+    return NextResponse.json({ data, currencySymbol: costConfig.currencySymbol });
 
   } catch (error) {
     console.error('User stats API error:', error);

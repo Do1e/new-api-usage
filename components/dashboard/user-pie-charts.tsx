@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
-import { Loader2, PieChart as PieChartIcon, MousePointerClick, Database, ArrowDownToLine, Archive, ArrowUpFromLine } from 'lucide-react';
+import { Loader2, PieChart as PieChartIcon, MousePointerClick, Database, ArrowDownToLine, Archive, ArrowUpFromLine, DollarSign } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatCurrencyAmount } from '@/lib/chart';
 import { createPieLabelRenderer, formatPieValue, PieTooltipContent, PIE_CHART_COLORS } from '@/lib/pie-chart';
 
 interface FilterState {
@@ -29,6 +30,7 @@ interface UserData {
   outputTokens: number;
   cacheTokens: number;
   totalTokens: number;
+  cost: number;
 }
 
 interface PieData {
@@ -37,9 +39,10 @@ interface PieData {
 }
 const renderLabel = createPieLabelRenderer();
 
-type TabType = 'calls' | 'totalTokens' | 'inputTokens' | 'cacheTokens' | 'outputTokens';
+type TabType = 'calls' | 'cost' | 'totalTokens' | 'inputTokens' | 'cacheTokens' | 'outputTokens';
 
 const TAB_CONFIG: Record<TabType, { label: string; icon: React.ReactNode; unit: string }> = {
+  cost: { label: '费用', icon: <DollarSign className="h-4 w-4" />, unit: '' },
   calls: { label: '调用', icon: <MousePointerClick className="h-4 w-4" />, unit: '调用' },
   totalTokens: { label: '总Token', icon: <Database className="h-4 w-4" />, unit: 'Token' },
   inputTokens: { label: '输入', icon: <ArrowDownToLine className="h-4 w-4" />, unit: 'Token' },
@@ -49,8 +52,9 @@ const TAB_CONFIG: Record<TabType, { label: string; icon: React.ReactNode; unit: 
 
 export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
   const [userData, setUserData] = useState<UserData[]>([]);
+  const [currencySymbol, setCurrencySymbol] = useState('$');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('calls');
+  const [activeTab, setActiveTab] = useState<TabType>('cost');
 
   useEffect(() => {
     const fetchUserStats = async () => {
@@ -67,6 +71,7 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
         if (response.ok) {
           const result = await response.json();
           setUserData(result.data);
+          setCurrencySymbol(result.currencySymbol || '$');
         }
       } catch (error) {
         console.error('Failed to fetch user stats:', error);
@@ -124,7 +129,16 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
               <Cell key={`cell-${dataKey}-${entry.name}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip content={(props) => <PieTooltipContent {...props} formatValue={formatPieValue} total={total} unit={TAB_CONFIG[dataKey].unit} />} />
+          <Tooltip
+            content={(props) => (
+              <PieTooltipContent
+                {...props}
+                formatValue={dataKey === 'cost' ? (value) => formatCurrencyAmount(value, currencySymbol) : formatPieValue}
+                total={total}
+                unit={TAB_CONFIG[dataKey].unit}
+              />
+            )}
+          />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -140,7 +154,7 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid h-auto grid-cols-3 sm:grid-cols-6 w-full">
             {(Object.keys(TAB_CONFIG) as TabType[]).map((key) => (
               <TabsTrigger key={key} value={key} className="flex items-center gap-1 text-xs">
                 {TAB_CONFIG[key].icon}
@@ -150,6 +164,9 @@ export const UserPieCharts = ({ filters, refreshKey }: UserPieChartsProps) => {
           </TabsList>
           <TabsContent value="calls" className="mt-4">
             {renderPieChart('calls')}
+          </TabsContent>
+          <TabsContent value="cost" className="mt-4">
+            {renderPieChart('cost')}
           </TabsContent>
           <TabsContent value="totalTokens" className="mt-4">
             {renderPieChart('totalTokens')}
