@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     const inputTokensSql = getInputTokensSql(dialect, 'prompt_tokens', 'other');
 
     // Build WHERE clause
-    const conditions: string[] = [];
+    const conditions: string[] = ['type = 2'];
 
     if (startTimeTs !== null) {
       conditions.push(`created_at >= ${sql.addParam(startTimeTs)}`);

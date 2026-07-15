@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
     const hourBucketSql = getHourBucketSql(dialect, 'created_at');
 
     const conditions: string[] = [
+      'type = 2',
       `created_at >= ${sql.addParam(startHour)}`,
       `created_at < ${sql.addParam(endHour + 3600)}`,
     ];

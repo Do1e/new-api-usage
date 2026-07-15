@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     const channelsTableName = getChannelsTableName(dialect);
 
     // Build WHERE clause
-    const conditions: string[] = [];
+    const conditions: string[] = ['l.type = 2'];
 
     if (startTime !== null) {
       conditions.push(`l.created_at >= ${sql.addParam(startTime)}`);

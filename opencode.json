@@ -12,7 +12,7 @@
     },
     "new-api-data": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "{env:DATABASE_URL}"],
+      "command": ["sh", "-c", "set -a; . ./.env; set +a; exec npx -y @modelcontextprotocol/server-postgres \"$DATABASE_URL\""],
       "enabled": true
     }
   },

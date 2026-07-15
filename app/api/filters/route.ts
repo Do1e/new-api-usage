@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const usersQuery = `
       SELECT DISTINCT username
       FROM ${logsTableName}
-      WHERE username IS NOT NULL AND username <> ''
+      WHERE type = 2 AND username IS NOT NULL AND username <> ''
       ORDER BY username
       LIMIT 100
     `;
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const modelsQuery = `
       SELECT DISTINCT model_name
       FROM ${logsTableName}
-      WHERE model_name IS NOT NULL AND model_name <> ''
+      WHERE type = 2 AND model_name IS NOT NULL AND model_name <> ''
       ORDER BY model_name
       LIMIT 100
     `;
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     const tokensQuery = `
       SELECT DISTINCT token_name, username
       FROM ${logsTableName}
-      WHERE token_name IS NOT NULL AND token_name <> ''
+      WHERE type = 2 AND token_name IS NOT NULL AND token_name <> ''
       ORDER BY username, token_name
       LIMIT 100
     `;
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     const channelsQuery = `
       SELECT DISTINCT channel_name
       FROM ${logsTableName}
-      WHERE channel_name IS NOT NULL AND channel_name <> ''
+      WHERE type = 2 AND channel_name IS NOT NULL AND channel_name <> ''
       ORDER BY channel_name
       LIMIT 100
     `;
